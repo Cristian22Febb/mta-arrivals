@@ -1,0 +1,18 @@
+{
+  "name": "mta-arrivals-backend",
+  "version": "1.0.0",
+  "description": "Express backend for MTA GTFS realtime arrivals",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.12",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.6.0",
+    "express": "^4.19.2",
+    "gtfs-realtime-bindings": "^1.1.1",
+    "node-fetch": "^2.6.12"
+  }
+}

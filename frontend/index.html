@@ -1,0 +1,1103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MTA Arrivals</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f6f7fb;
+        color: #1f2937;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+      }
+      .app {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-size: 28px;
+      }
+      .panel {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+      }
+      .panel-dark {
+        background: #0f1115;
+        color: #f9fafb;
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+      }
+      .panel-dark .status {
+        color: #cbd5f5;
+      }
+      .weather-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      .temp-box {
+        background: #151923;
+        border: 1px solid #1f2937;
+        border-radius: 10px;
+        padding: 10px 12px;
+        min-width: 160px;
+      }
+      .temp-current {
+        font-size: 20px;
+        font-weight: 800;
+        color: #ffffff;
+      }
+      .temp-minmax {
+        color: #cbd5f5;
+        font-size: 12px;
+        margin-top: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .unit-toggle {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .unit-toggle button {
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid #1f2937;
+        background: #151923;
+        color: #cbd5f5;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .unit-toggle button.active {
+        background: #ffffff;
+        color: #0f1115;
+      }
+      .forecast-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .forecast-day {
+        background: #151923;
+        border: 1px solid #1f2937;
+        border-radius: 10px;
+        padding: 10px 12px;
+      }
+      .forecast-date {
+        color: #cbd5f5;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .forecast-desc {
+        color: #cbd5f5;
+        font-size: 12px;
+        margin-top: 2px;
+      }
+      .weather-metric {
+        background: #151923;
+        border: 1px solid #1f2937;
+        border-radius: 10px;
+        padding: 10px 12px;
+        min-width: 140px;
+      }
+      .weather-label {
+        color: #cbd5f5;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .weather-value {
+        font-size: 18px;
+        font-weight: 800;
+        color: #ffffff;
+        margin-top: 4px;
+      }
+      .search-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      label {
+        font-weight: 600;
+        display: block;
+        margin-bottom: 6px;
+      }
+      input[type="text"],
+      select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      .routes {
+        margin-top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .route-pill {
+        background: #f3f4f6;
+        border-radius: 999px;
+        padding: 6px 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+      }
+      .arrivals-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      .alerts-list {
+        display: grid;
+        gap: 10px;
+      }
+      .alert-card {
+        background: #151923;
+        border-radius: 10px;
+        padding: 12px 14px;
+        border: 1px solid #1f2937;
+      }
+      .alert-routes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 8px;
+      }
+      .alert-route-circle {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 12px;
+      }
+      .inline-route {
+        display: inline-grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        font-weight: 800;
+        font-size: 11px;
+        line-height: 1;
+        margin: 0 4px;
+        vertical-align: middle;
+      }
+      .alert-title {
+        font-weight: 700;
+        color: #ffffff;
+        font-size: 14px;
+      }
+      .alert-description {
+        color: #cbd5f5;
+        font-size: 13px;
+        margin-top: 4px;
+      }
+      .arrivals h2 {
+        margin-top: 0;
+        font-size: 18px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .arrivals-separator {
+        height: 1px;
+        background: #2b3240;
+        margin: 6px 0 10px;
+      }
+      .arrival-list {
+        display: grid;
+        gap: 10px;
+      }
+      .arrival-card {
+        background: #151923;
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: center;
+        border: 1px solid #1f2937;
+      }
+      .arrival-card.is-now {
+        animation: nowFlash 1s infinite;
+      }
+      @keyframes nowFlash {
+        0%,
+        49% {
+          background: #151923;
+          border-color: #1f2937;
+        }
+        50%,
+        100% {
+          background: #000000;
+          border-color: #000000;
+        }
+      }
+      .arrival-main {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .route-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        background: #111827;
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        font-size: 16px;
+      }
+      .arrival-name {
+        font-weight: 800;
+        color: #ffffff;
+        font-size: 15px;
+      }
+      .arrival-right {
+        text-align: right;
+        display: grid;
+        justify-items: end;
+        gap: 2px;
+      }
+      .arrival-time {
+        font-weight: 800;
+        color: #ffffff;
+        font-size: 15px;
+      }
+      .arrival-status {
+        color: #cbd5f5;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .status {
+        color: #6b7280;
+        font-size: 14px;
+        margin-top: 8px;
+      }
+      .status-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .refresh-button {
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        background: #ffffff;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .refresh-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+      @media (max-width: 860px) {
+        .search-row,
+        .arrivals-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <h1>NYC Subway Realtime Arrivals</h1>
+      <div class="status">
+        API docs: <a href="/api-docs.html">/api-docs.html</a>
+      </div>
+
+      <div class="panel">
+        <div>
+          <label for="zipcode-input">Find nearby stations by ZIP</label>
+          <div class="status-row">
+            <input
+              id="zipcode-input"
+              type="text"
+              placeholder="Enter NYC ZIP code..."
+              autocomplete="off"
+            />
+            <button id="zipcode-button" class="refresh-button" type="button">
+              Find stations
+            </button>
+            <button id="show-all-stations" class="refresh-button" type="button">
+              Show all stations
+            </button>
+          </div>
+          <div id="zipcode-status" class="status"></div>
+        </div>
+      </div>
+
+      <div class="panel panel-dark">
+        <h2>Weather</h2>
+        <div id="weather-status" class="status">Enter a ZIP to load weather.</div>
+        <div class="unit-toggle">
+          <button id="unit-f" type="button">Fahrenheit</button>
+          <button id="unit-c" type="button">Celsius</button>
+        </div>
+        <div id="weather-row" class="weather-row"></div>
+        <div id="forecast-row" class="forecast-row"></div>
+      </div>
+
+      <div class="panel">
+        <div class="search-row">
+          <div>
+            <label for="station-search">Search station</label>
+            <input
+              id="station-search"
+              type="text"
+              placeholder="Type station name..."
+              autocomplete="off"
+            />
+          </div>
+          <div>
+            <label for="station-select">Select station</label>
+            <select id="station-select" size="6"></select>
+          </div>
+        </div>
+
+        <div>
+          <label>Routes at this station</label>
+          <div id="route-options" class="routes"></div>
+        </div>
+
+        <div class="status-row">
+          <div class="status" id="status-text">Loading stations...</div>
+          <button id="refresh-arrivals" class="refresh-button" type="button">
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div class="panel panel-dark">
+        <h2>Alerts</h2>
+        <div id="alerts-status" class="status">Loading alerts...</div>
+        <div id="alerts-list" class="alerts-list"></div>
+      </div>
+
+      <div class="panel panel-dark arrivals-grid">
+        <div class="arrivals">
+          <h2>Uptown</h2>
+          <div id="north-arrivals" class="arrival-list"></div>
+        </div>
+        <div class="arrivals-separator"></div>
+        <div class="arrivals">
+          <h2>Downtown</h2>
+          <div id="south-arrivals" class="arrival-list"></div>
+        </div>
+      </div>
+
+
+    </div>
+
+    <script>
+      const API_BASE = window.location.origin.startsWith("http")
+        ? window.location.origin
+        : "http://localhost:3001";
+      const stationSearch = document.getElementById("station-search");
+      const stationSelect = document.getElementById("station-select");
+      const routeOptions = document.getElementById("route-options");
+      const statusText = document.getElementById("status-text");
+      const northArrivals = document.getElementById("north-arrivals");
+      const southArrivals = document.getElementById("south-arrivals");
+      const refreshArrivalsButton = document.getElementById("refresh-arrivals");
+      const zipcodeInput = document.getElementById("zipcode-input");
+      const zipcodeButton = document.getElementById("zipcode-button");
+      const showAllStationsButton = document.getElementById("show-all-stations");
+      const zipcodeStatus = document.getElementById("zipcode-status");
+      const weatherStatus = document.getElementById("weather-status");
+      const weatherRow = document.getElementById("weather-row");
+      const forecastRow = document.getElementById("forecast-row");
+      const unitFButton = document.getElementById("unit-f");
+      const unitCButton = document.getElementById("unit-c");
+      const alertsStatus = document.getElementById("alerts-status");
+      const alertsList = document.getElementById("alerts-list");
+
+      let stations = [];
+      let filteredStations = [];
+      let currentStation = null;
+      let refreshTimer = null;
+      let lastWeatherData = null;
+      let tempUnit = "f";
+
+      function setStatus(message) {
+        statusText.textContent = message;
+      }
+
+      function setZipStatus(message) {
+        zipcodeStatus.textContent = message;
+      }
+
+      const ROUTE_COLORS = {
+        "1": "#e30f01",
+        "2": "#e30f01",
+        "3": "#e30f01",
+        "4": "#007527",
+        "5": "#007527",
+        "6": "#007527",
+        "6X": "#007527",
+        "7": "#870061",
+        "7X": "#870061",
+        A: "#006cb7",
+        C: "#006cb7",
+        E: "#006cb7",
+        B: "#ff6f19",
+        D: "#ff6f19",
+        F: "#ff6f19",
+        M: "#ff6f19",
+        G: "#9fc438",
+        J: "#874e17",
+        Z: "#874e17",
+        L: "#848a88",
+        N: "#ffc801",
+        Q: "#ffc801",
+        R: "#ffc801",
+        S: "#3e3f41",
+        SIR: "#3e3f41"
+      };
+
+      const DARK_TEXT_ROUTES = new Set(["N", "Q", "R"]);
+
+      function getRouteColor(route) {
+        return ROUTE_COLORS[route] || "#111827";
+      }
+
+      function getRouteTextColor(route) {
+        return DARK_TEXT_ROUTES.has(route) ? "#111827" : "#ffffff";
+      }
+
+      function applyRouteStyles(el, route) {
+        const color = getRouteColor(route);
+        el.style.background = color;
+        el.style.color = getRouteTextColor(route);
+      }
+
+      function formatCountdown(epochSeconds) {
+        const now = Date.now();
+        const diff = Math.max(0, epochSeconds * 1000 - now);
+        const minutes = Math.floor(diff / 60000);
+        if (minutes <= 0) {
+          return { time: "Now", status: "" };
+        }
+        if (minutes === 1) {
+          return { time: "1 min", status: "Arriving" };
+        }
+        return { time: `${minutes} min`, status: "Scheduled" };
+      }
+
+      function renderArrivalList(container, arrivals) {
+        container.innerHTML = "";
+        if (arrivals.length === 0) {
+          container.innerHTML = "<div class=\"status\">No arrivals found.</div>";
+          return;
+        }
+        arrivals.forEach((arrival) => {
+          const destination = arrival.destination ? arrival.destination : "";
+          const countdown = formatCountdown(arrival.arrival);
+          const card = document.createElement("div");
+          card.className = "arrival-card";
+          if (countdown.time === "Now") {
+            card.classList.add("is-now");
+          }
+          card.innerHTML = `
+            <div class="arrival-main">
+              <div class="route-circle">${arrival.route}</div>
+              <div class="arrival-name">${destination || "Train"}</div>
+            </div>
+            <div class="arrival-right">
+              <div class="arrival-time">${countdown.time}</div>
+              ${countdown.status ? `<div class="arrival-status">${countdown.status}</div>` : ""}
+            </div>
+          `;
+          const routeCircle = card.querySelector(".route-circle");
+          if (routeCircle) {
+            applyRouteStyles(routeCircle, arrival.route);
+          }
+          container.appendChild(card);
+        });
+      }
+
+      function renderAlerts(alerts) {
+        alertsList.innerHTML = "";
+        if (!alerts || alerts.length === 0) {
+          alertsStatus.textContent = "No active alerts.";
+          return;
+        }
+        alertsStatus.textContent = `${alerts.length} alert${
+          alerts.length === 1 ? "" : "s"
+        }`;
+        alerts.forEach((alert) => {
+          const card = document.createElement("div");
+          card.className = "alert-card";
+          const header = alert.header ? alert.header : "Service alert";
+          const description = alert.description ? alert.description : "";
+          const routes = Array.isArray(alert.routes) ? alert.routes : [];
+          const routesMarkup = routes.length
+            ? `<div class="alert-routes">
+                ${routes
+                  .map(
+                    (route) =>
+                      `<div class="alert-route-circle" data-route="${route}">${route}</div>`
+                  )
+                  .join("")}
+              </div>`
+            : "";
+          card.innerHTML = `
+            ${routesMarkup}
+            <div class="alert-title">${renderAlertText(header)}</div>
+            ${
+              description
+                ? `<div class="alert-description">${renderAlertText(description)}</div>`
+                : ""
+            }
+          `;
+          card
+            .querySelectorAll(".alert-route-circle, .inline-route")
+            .forEach((routeCircle) => {
+              const route = routeCircle.dataset.route;
+              if (route) {
+                applyRouteStyles(routeCircle, route);
+              }
+            });
+          alertsList.appendChild(card);
+        });
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function renderAlertText(text) {
+        const escaped = escapeHtml(text);
+        return escaped.replace(/\[([A-Za-z0-9]+)\]/g, (match, route) => {
+          const normalized = route.toUpperCase();
+          if (!ROUTE_COLORS[normalized]) {
+            return match;
+          }
+          return `<span class="inline-route" data-route="${normalized}">${normalized}</span>`;
+        });
+      }
+
+      function renderStations(list) {
+        filteredStations = list;
+        stationSelect.innerHTML = "";
+        list.forEach((station, index) => {
+          const option = document.createElement("option");
+          option.value = index;
+          option.textContent = station.name;
+          stationSelect.appendChild(option);
+        });
+        if (list.length > 0) {
+          stationSelect.selectedIndex = 0;
+          selectStation(list[0]);
+        }
+      }
+
+      function renderRoutes(station) {
+        routeOptions.innerHTML = "";
+        station.routes.forEach((route) => {
+          const label = document.createElement("label");
+          label.className = "route-pill";
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.value = route;
+          checkbox.checked = true;
+          checkbox.addEventListener("change", () => updateArrivals());
+          label.appendChild(checkbox);
+          const text = document.createElement("span");
+          text.textContent = route;
+          label.appendChild(text);
+          applyRouteStyles(label, route);
+          routeOptions.appendChild(label);
+        });
+      }
+
+      function getSelectedRoutes() {
+        return Array.from(routeOptions.querySelectorAll("input[type=\"checkbox\"]"))
+          .filter((input) => input.checked)
+          .map((input) => input.value);
+      }
+
+      function splitDirections(stopIds) {
+        const north = [];
+        const south = [];
+        stopIds.forEach((stopId) => {
+          if (stopId.endsWith("N")) {
+            north.push(stopId);
+          } else if (stopId.endsWith("S")) {
+            south.push(stopId);
+          } else {
+            north.push(stopId);
+          }
+        });
+        return { north, south };
+      }
+
+      async function fetchArrivals(stopIds, routes) {
+        const arrivals = [];
+        await Promise.all(
+          stopIds.map(async (stopId) => {
+            const url = new URL(`${API_BASE}/arrivals`);
+            url.searchParams.set("stopId", stopId);
+            if (routes.length > 0) {
+              url.searchParams.set("routes", routes.join(","));
+            }
+            const response = await fetch(url.toString());
+            const responseText = await response.text();
+            if (!response.ok) {
+              throw new Error(`Arrivals request failed: ${response.status}`);
+            }
+            const data = JSON.parse(responseText);
+            arrivals.push(...data.arrivals);
+          })
+        );
+        return arrivals.sort((a, b) => a.arrival - b.arrival).slice(0, 5);
+      }
+
+      async function updateArrivals() {
+        if (!currentStation) return;
+        refreshArrivalsButton.disabled = true;
+        setStatus(`Refreshing arrivals for ${currentStation.name}...`);
+
+        const routes = getSelectedRoutes();
+        if (routes.length === 0) {
+          renderArrivalList(northArrivals, []);
+          renderArrivalList(southArrivals, []);
+          setStatus("Select at least one route.");
+          alertsStatus.textContent = "Select at least one route to see alerts.";
+          alertsList.innerHTML = "";
+          refreshArrivalsButton.disabled = false;
+          return;
+        }
+        const { north, south } = splitDirections(currentStation.stopIds);
+
+        try {
+          const [northList, southList] = await Promise.all([
+            fetchArrivals(north, routes),
+            fetchArrivals(south, routes)
+          ]);
+          renderArrivalList(northArrivals, northList);
+          renderArrivalList(southArrivals, southList);
+          const now = new Date();
+          setStatus(`Last updated at ${now.toLocaleTimeString()}`);
+        } catch (error) {
+          setStatus(error.message);
+        } finally {
+          refreshArrivalsButton.disabled = false;
+        }
+      }
+
+      async function updateAlerts() {
+        if (!currentStation) return;
+        const routes = getSelectedRoutes();
+        if (routes.length === 0) return;
+        alertsStatus.textContent = "Refreshing alerts...";
+        const url = new URL(`${API_BASE}/alerts`);
+        url.searchParams.set("routes", routes.join(","));
+        if (currentStation.stopIds && currentStation.stopIds.length > 0) {
+          url.searchParams.set("stopIds", currentStation.stopIds.join(","));
+          const stationIds = Array.from(
+            new Set(
+              currentStation.stopIds.map((stopId) =>
+                stopId.replace(/[NS]$/, "")
+              )
+            )
+          ).filter(Boolean);
+          if (stationIds.length > 0) {
+            url.searchParams.set("stationIds", stationIds.join(","));
+          }
+        }
+        try {
+          const response = await fetch(url.toString());
+          if (!response.ok) {
+            throw new Error("Failed to load alerts.");
+          }
+          const data = await response.json();
+          renderAlerts(data.alerts || []);
+        } catch (error) {
+          alertsStatus.textContent = error.message;
+          alertsList.innerHTML = "";
+        }
+      }
+
+      function selectStation(station) {
+        currentStation = station;
+        renderRoutes(station);
+        updateArrivals();
+        updateAlerts();
+        try {
+          localStorage.setItem("selectedStationName", station.name);
+        } catch (error) {
+          console.warn("Could not persist selected station", error);
+        }
+        if (refreshTimer) clearInterval(refreshTimer);
+        refreshTimer = setInterval(() => {
+          updateArrivals();
+          updateAlerts();
+        }, 30000);
+      }
+
+      stationSearch.addEventListener("input", () => {
+        const query = stationSearch.value.trim().toLowerCase();
+        const filtered = query
+          ? stations.filter((station) =>
+              station.name.toLowerCase().includes(query)
+            )
+          : stations;
+        renderStations(filtered);
+      });
+
+      function getWeatherDescription(code) {
+        const map = {
+          0: "Clear",
+          1: "Mostly clear",
+          2: "Partly cloudy",
+          3: "Overcast",
+          45: "Fog",
+          48: "Rime fog",
+          51: "Light drizzle",
+          53: "Drizzle",
+          55: "Dense drizzle",
+          61: "Light rain",
+          63: "Rain",
+          65: "Heavy rain",
+          71: "Light snow",
+          73: "Snow",
+          75: "Heavy snow",
+          80: "Rain showers",
+          81: "Heavy showers",
+          82: "Violent showers",
+          95: "Thunderstorm"
+        };
+        return map[code] || "Weather";
+      }
+
+      function formatForecastDate(isoDate) {
+        const date = new Date(`${isoDate}T00:00:00`);
+        const weekday = date.toLocaleDateString([], { weekday: "long" });
+        const day = date.getDate();
+        const suffix =
+          day % 10 === 1 && day % 100 !== 11
+            ? "st"
+            : day % 10 === 2 && day % 100 !== 12
+            ? "nd"
+            : day % 10 === 3 && day % 100 !== 13
+            ? "rd"
+            : "th";
+        return `${weekday} ${day}${suffix}`;
+      }
+
+      function renderWeather(data) {
+        weatherRow.innerHTML = "";
+        forecastRow.innerHTML = "";
+        if (!data) {
+          weatherStatus.textContent = "Weather unavailable.";
+          return;
+        }
+        const {
+          temperatureF,
+          temperatureC,
+          minF,
+          maxF,
+          minC,
+          maxC,
+          condition,
+          windSpeed,
+          humidity,
+          location,
+          daily
+        } = data;
+        weatherStatus.textContent = "Current conditions";
+        const currentTemp =
+          tempUnit === "c" ? `${temperatureC}°C` : `${temperatureF}°F`;
+        const minTemp = tempUnit === "c" ? `${minC}°C` : `${minF}°F`;
+        const maxTemp = tempUnit === "c" ? `${maxC}°C` : `${maxF}°F`;
+        const items = [
+          ...(location ? [{ label: "Location", value: location }] : []),
+          { label: "Condition", value: condition },
+          { label: "Wind", value: `${windSpeed} mph` },
+          { label: "Humidity", value: `${humidity}%` }
+        ];
+        const tempCard = document.createElement("div");
+        tempCard.className = "temp-box";
+        tempCard.innerHTML = `
+          <div class="weather-label">Temperature</div>
+          <div class="temp-current">${currentTemp}</div>
+          <div class="temp-minmax">Min ${minTemp} · Max ${maxTemp}</div>
+        `;
+        weatherRow.appendChild(tempCard);
+        items.forEach((item) => {
+          const card = document.createElement("div");
+          card.className = "weather-metric";
+          card.innerHTML = `
+            <div class="weather-label">${item.label}</div>
+            <div class="weather-value">${item.value}</div>
+          `;
+          weatherRow.appendChild(card);
+        });
+        if (daily && daily.time && daily.time.length) {
+          daily.time.forEach((date, index) => {
+            const maxF = daily.maxF[index];
+            const minF = daily.minF[index];
+            const maxC = daily.maxC[index];
+            const minC = daily.minC[index];
+            const code = daily.codes[index];
+            const desc = getWeatherDescription(code);
+            const precip = daily.precipMax[index];
+            const day = document.createElement("div");
+            day.className = "forecast-day";
+            const maxTemp = tempUnit === "c" ? `${maxC}°C` : `${maxF}°F`;
+            const minTemp = tempUnit === "c" ? `${minC}°C` : `${minF}°F`;
+            day.innerHTML = `
+              <div class="forecast-date">${formatForecastDate(date)}</div>
+              <div class="temp-box">
+                <div class="temp-current">${maxTemp}</div>
+                <div class="temp-minmax">Min ${minTemp} · Max ${maxTemp}</div>
+              </div>
+              <div class="forecast-desc">${desc}${
+                Number.isFinite(precip) ? ` · ${precip}%` : ""
+              }</div>
+            `;
+            forecastRow.appendChild(day);
+          });
+        }
+      }
+
+      async function updateWeather(lat, lon) {
+        weatherStatus.textContent = "Loading weather...";
+        const url = new URL(`${API_BASE}/weather`);
+        url.searchParams.set("lat", lat);
+        url.searchParams.set("lon", lon);
+        try {
+          const response = await fetch(url.toString());
+          if (!response.ok) {
+            throw new Error("Weather request failed.");
+          }
+          const data = await response.json();
+          lastWeatherData = {
+            temperatureF: data.temperatureF,
+            temperatureC: data.temperatureC,
+            minF: data.minF,
+            maxF: data.maxF,
+            minC: data.minC,
+            maxC: data.maxC,
+            condition: getWeatherDescription(data.code),
+            windSpeed: data.windSpeed,
+            humidity: data.humidity,
+            daily: data.daily
+          };
+          renderWeather(lastWeatherData);
+        } catch (error) {
+          weatherStatus.textContent = error.message;
+          weatherRow.innerHTML = "";
+          forecastRow.innerHTML = "";
+        }
+      }
+
+      async function updatePlaceName(lat, lon) {
+        const url = new URL(`${API_BASE}/reverse-geocode`);
+        url.searchParams.set("lat", lat);
+        url.searchParams.set("lon", lon);
+        try {
+          const response = await fetch(url.toString());
+          if (!response.ok) {
+            throw new Error("Reverse geocode failed.");
+          }
+          const data = await response.json();
+          const address = data.address || {};
+          const borough =
+            address.borough ||
+            address.city_district ||
+            address.suburb ||
+            address.county ||
+            address.city;
+          const display = borough ? `${borough}, New York` : null;
+          if (display) {
+            if (!lastWeatherData) {
+              lastWeatherData = {
+                temperatureF: 0,
+                temperatureC: 0,
+                condition: "Weather",
+                windSpeed: 0
+              };
+            }
+            lastWeatherData.location = display;
+            renderWeather(lastWeatherData);
+          }
+        } catch (error) {
+          // ignore reverse geocode errors
+        }
+      }
+
+      async function findStationsByZip(zipcode) {
+        const zip = zipcode.trim();
+        if (!/^\d{5}$/.test(zip)) {
+          setZipStatus("Enter a valid 5-digit NYC ZIP code.");
+          return;
+        }
+        setZipStatus("Finding nearby stations...");
+        const url = new URL(`${API_BASE}/zipcode-info`);
+        url.searchParams.set("zip", zip);
+        try {
+          const response = await fetch(url.toString());
+          if (!response.ok) {
+            let message = "ZIP lookup failed.";
+            try {
+              const errorData = await response.json();
+              if (errorData && errorData.error) {
+                message = errorData.error;
+              }
+            } catch (error) {
+              // ignore JSON parse errors
+            }
+            throw new Error(message);
+          }
+          const data = await response.json();
+          if (!data.stations || data.stations.length === 0) {
+            setZipStatus("No stations found near that ZIP.");
+            return;
+          }
+          renderStations(data.stations);
+          setZipStatus(
+            `Showing ${data.stations.length} stations near ${data.zip}.`
+          );
+          selectStation(data.stations[0]);
+          try {
+            localStorage.setItem("selectedZipcode", data.zip);
+          } catch (error) {
+            console.warn("Could not persist zipcode", error);
+          }
+          if (data.centroid) {
+            updateWeather(data.centroid.lat, data.centroid.lon);
+            updatePlaceName(data.centroid.lat, data.centroid.lon);
+          }
+        } catch (error) {
+          setZipStatus(error.message);
+        }
+      }
+
+      function setTemperatureUnit(unit) {
+        tempUnit = unit;
+        unitFButton.classList.toggle("active", unit === "f");
+        unitCButton.classList.toggle("active", unit === "c");
+        try {
+          localStorage.setItem("temperatureUnit", unit);
+        } catch (error) {
+          console.warn("Could not persist temperature unit", error);
+        }
+        if (lastWeatherData) {
+          renderWeather(lastWeatherData);
+        }
+      }
+
+      stationSelect.addEventListener("change", () => {
+        const index = Number(stationSelect.value);
+        if (!Number.isNaN(index) && filteredStations[index]) {
+          selectStation(filteredStations[index]);
+        } else if (stationSelect.selectedIndex >= 0) {
+          selectStation(filteredStations[stationSelect.selectedIndex]);
+        }
+      });
+
+      zipcodeButton.addEventListener("click", () => {
+        findStationsByZip(zipcodeInput.value);
+      });
+
+      zipcodeInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          findStationsByZip(zipcodeInput.value);
+        }
+      });
+
+      showAllStationsButton.addEventListener("click", () => {
+        renderStations(stations);
+        setZipStatus("Showing all stations.");
+      });
+
+      async function loadStations() {
+        try {
+          const response = await fetch(`${API_BASE}/stations`);
+          if (!response.ok) {
+            throw new Error("Failed to load stations.");
+          }
+          const data = await response.json();
+          stations = data;
+          if (stations.length === 0) {
+            setStatus("No stations loaded.");
+            return;
+          }
+          let restored = false;
+          try {
+            const savedName = localStorage.getItem("selectedStationName");
+            if (savedName) {
+              const savedStation = stations.find(
+                (station) => station.name === savedName
+              );
+              if (savedStation) {
+                renderStations(stations);
+                stationSelect.selectedIndex = stations.indexOf(savedStation);
+                selectStation(savedStation);
+                restored = true;
+              }
+            }
+          } catch (error) {
+            restored = false;
+          }
+          if (!restored) {
+            renderStations(stations);
+          }
+          try {
+            const savedZip = localStorage.getItem("selectedZipcode");
+            if (savedZip) {
+              zipcodeInput.value = savedZip;
+              findStationsByZip(savedZip);
+            }
+          } catch (error) {
+            console.warn("Could not restore zipcode", error);
+          }
+          try {
+            const savedUnit = localStorage.getItem("temperatureUnit");
+            if (savedUnit === "c" || savedUnit === "f") {
+              setTemperatureUnit(savedUnit);
+            } else {
+              setTemperatureUnit("f");
+            }
+          } catch (error) {
+            setTemperatureUnit("f");
+          }
+          setStatus("Stations loaded.");
+        } catch (error) {
+          setStatus(error.message);
+        }
+      }
+
+      refreshArrivalsButton.addEventListener("click", () => updateArrivals());
+
+      unitFButton.addEventListener("click", () => setTemperatureUnit("f"));
+      unitCButton.addEventListener("click", () => setTemperatureUnit("c"));
+
+      loadStations();
+    </script>
+  </body>
+</html>

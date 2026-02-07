@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MTA Arrivals API Docs</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f6f7fb;
+        color: #1f2937;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+      }
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+      .subtitle {
+        margin: 0 0 24px;
+        color: #4b5563;
+      }
+      .panel {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+        margin-bottom: 16px;
+      }
+      .endpoint {
+        border-left: 4px solid #111827;
+        padding-left: 12px;
+        margin-bottom: 16px;
+      }
+      .method {
+        display: inline-block;
+        font-weight: 700;
+        background: #111827;
+        color: #fff;
+        border-radius: 6px;
+        padding: 4px 8px;
+        margin-right: 8px;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+      }
+      .path {
+        font-weight: 700;
+        font-size: 16px;
+      }
+      .desc {
+        margin: 8px 0 0;
+        color: #4b5563;
+      }
+      pre {
+        background: #0f1115;
+        color: #e5e7eb;
+        padding: 12px;
+        border-radius: 8px;
+        overflow: auto;
+        font-size: 12px;
+      }
+      .section-title {
+        margin-top: 12px;
+        font-weight: 700;
+      }
+      .note {
+        font-size: 12px;
+        color: #6b7280;
+      }
+      a {
+        color: #1d4ed8;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>MTA Arrivals API</h1>
+      <div class="subtitle">Swagger-style reference for device + web clients.</div>
+
+      <div class="panel">
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="path">/device/setup</span>
+          <div class="desc">
+            First-time setup: provide zip code or station name to get choices.
+          </div>
+          <div class="section-title">Example requests</div>
+          <pre>GET /device/setup?zip=11229
+GET /device/setup?station=brighton</pre>
+          <div class="section-title">Example response (zip)</div>
+          <pre>{
+  "mode": "zip",
+  "zip": "11229",
+  "centroid": { "lat": 40.6012, "lon": -73.9448 },
+  "stations": [
+    {
+      "id": "B11",
+      "name": "Brighton Beach",
+      "stopIds": ["B11N", "B11S"],
+      "routes": ["B", "Q"],
+      "lat": 40.5776,
+      "lon": -73.9615,
+      "distance_miles": 1.23
+    }
+  ]
+}</pre>
+        </div>
+
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="path">/device/status</span>
+          <div class="desc">
+            Main device payload: arrivals, alerts, weather, station info.
+          </div>
+          <div class="section-title">Example request</div>
+          <pre>GET /device/status?stationId=B11&amp;routes=B,Q</pre>
+          <div class="section-title">Example response</div>
+          <pre>{
+  "station": {
+    "id": "B11",
+    "name": "Brighton Beach",
+    "stopIds": ["B11N", "B11S"],
+    "routes": ["B", "Q"],
+    "lat": 40.5776,
+    "lon": -73.9615
+  },
+  "arrivals": {
+    "north": [{ "route": "Q", "arrival": 1737800000, "destination": "96 St" }],
+    "south": [{ "route": "B", "arrival": 1737800300, "destination": "Coney Island" }]
+  },
+  "alerts": [
+    {
+      "id": "lmm:planned_work:29831",
+      "header": "In Brooklyn, no [B] between Kings Hwy and Brighton Beach - take the [Q]",
+      "description": "What's happening? We're replacing tracks",
+      "routes": ["B", "Q"],
+      "effect": "PLANNED_WORK"
+    }
+  ],
+  "weather": {
+    "temperatureF": 42,
+    "temperatureC": 6,
+    "minF": 35,
+    "maxF": 46,
+    "minC": 2,
+    "maxC": 8,
+    "windSpeed": 12,
+    "humidity": 58,
+    "code": 2,
+    "daily": {
+      "time": ["2026-01-29", "2026-01-30"],
+      "maxF": [46, 44],
+      "minF": [35, 32],
+      "maxC": [8, 7],
+      "minC": [2, 0],
+      "codes": [2, 3],
+      "precipMax": [20, 10]
+    }
+  }
+}</pre>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="path">/stations</span>
+          <div class="desc">All stations (name, ids, routes, lat/lon).</div>
+          <div class="section-title">Example request</div>
+          <pre>GET /stations</pre>
+        </div>
+
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="path">/stations/search</span>
+          <div class="desc">Search stations by partial name.</div>
+          <div class="section-title">Example request</div>
+          <pre>GET /stations/search?query=brighton</pre>
+        </div>
+
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="path">/stations/by-id</span>
+          <div class="desc">Get station by id.</div>
+          <div class="section-title">Example request</div>
+          <pre>GET /stations/by-id?stationId=B11</pre>
+        </div>
+
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="path">/zipcode-info</span>
+          <div class="desc">ZIP centroid + nearest stations.</div>
+          <div class="section-title">Example request</div>
+          <pre>GET /zipcode-info?zip=11229</pre>
+        </div>
+
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="path">/arrivals</span>
+          <div class="desc">Arrivals for one stop id and selected routes.</div>
+          <div class="section-title">Example request</div>
+          <pre>GET /arrivals?stopId=B11N&amp;routes=Q,B</pre>
+        </div>
+
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="path">/alerts</span>
+          <div class="desc">Alerts filtered by routes/stops/stations.</div>
+          <div class="section-title">Example request</div>
+          <pre>GET /alerts?routes=Q,B&amp;stopIds=B11N,B11S&amp;stationIds=B11</pre>
+        </div>
+
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="path">/weather</span>
+          <div class="desc">Weather payload for a lat/lon.</div>
+          <div class="section-title">Example request</div>
+          <pre>GET /weather?lat=40.6012&amp;lon=-73.9448</pre>
+        </div>
+
+        <div class="endpoint">
+          <span class="method">GET</span>
+          <span class="path">/reverse-geocode</span>
+          <div class="desc">Reverse geocode (borough, city, etc.).</div>
+          <div class="section-title">Example request</div>
+          <pre>GET /reverse-geocode?lat=40.6012&amp;lon=-73.9448</pre>
+        </div>
+      </div>
+
+      <div class="note">
+        Tip: the server serves this page at
+        <a href="/api-docs.html">/api-docs.html</a>.
+      </div>
+    </div>
+  </body>
+</html>

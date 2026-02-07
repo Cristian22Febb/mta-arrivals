@@ -1,0 +1,53 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Demo files (not needed for deployment)
+esp327inchdemo/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# ESP32 - exclude entire directory
+esp32-crowpanel/
+
+# User data
+backend/users.json
+backend/quizzes.json
+
+# Large GTFS files (optional - these can be re-downloaded)
+*.txt
+!requirements.txt
+!proxy/requirements.txt
