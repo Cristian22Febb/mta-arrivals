@@ -8,11 +8,13 @@ export GTFS_PROXY_BASE="http://127.0.0.1:8000"
 export GTFS_PROXY_MODE="nyctrains"
 export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION="python"
 export PROTOBUF_FORCE_PYTHON="1"
+export PYTHONPATH="$(pwd):$PYTHONPATH"
 
 echo "Installing Python dependencies..."
 pip install -r proxy/requirements.txt
 
 echo "Starting Python proxy on http://127.0.0.1:8000 in background..."
+cd "$(pwd)"
 python proxy/run_proxy.py &
 PROXY_PID=$!
 
