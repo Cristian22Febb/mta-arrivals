@@ -40,14 +40,14 @@ logs/
 *.tmp
 *.temp
 
-# ESP32 - exclude entire directory
+# ESP32 - exclude entire directories
 esp32-crowpanel/
+esp327inchdemo/
 
 # User data
 backend/users.json
 backend/quizzes.json
 
-# Large GTFS files (optional - these can be re-downloaded)
-*.txt
-!requirements.txt
-!proxy/requirements.txt
+# Large GTFS files (>100MB - exceeds GitHub limit)
+/stop_times.txt
+/shapes.txt

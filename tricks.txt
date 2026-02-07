@@ -1,0 +1,1213 @@
+[00:00] what is up cart and tech fans welcome
+
+[00:02] back to another garage tinkering video
+
+[00:04] today as you've probably seen in the
+
+[00:06] title we're going to be launching into
+
+[00:08] how to get the most out of lvgl and more
+
+[00:12] specifically how we can get the most
+
+[00:15] frames per second so we can ensure that
+
+[00:17] whatever we've got going on on our
+
+[00:20] screen looks smooth and not all janky
+
+[00:24] and jumpy this is something we talk
+
+[00:26] about a lot in my Discord um if you
+
+[00:28] wanted to join that conversation the
+
+[00:30] link for the Discord channel is down in
+
+[00:32] the description but often people are
+
+[00:34] coming across this problem where you
+
+[00:36] know things are going on on the screen
+
+[00:38] data's coming in they're wanting to
+
+[00:39] display gauges and getting like four
+
+[00:42] five six frames a second doesn't look
+
+[00:45] great and there are definitely some
+
+[00:47] tricks we can apply in order to help
+
+[00:49] solve that problem let's take a look at
+
+[00:51] a typical setup that you might have and
+
+[00:53] then we'll see how we can improve it
+
+[00:55] this is the setup that we're going to be
+
+[00:58] looking at um you've probably seen these
+
+[01:01] a lot in my previous videos but this is
+
+[01:03] a 2.1 in St 771 LCD screen it's being
+
+[01:09] driven by this uh wave share 2.1 in
+
+[01:13] touchcreen I just it's a little bit too
+
+[01:15] big for my kns So currently it's just
+
+[01:17] driving this
+
+[01:18] screen and we have a simulated canvas
+
+[01:23] here which is sending the data that this
+
+[01:27] screen is displayed via ESP now so it's
+
+[01:30] just broadcasting that over and it's
+
+[01:33] doing it currently at 10 Hertz so it's
+
+[01:36] updating it 10 times a second this is
+
+[01:39] running lvgl 9 and it's made up of
+
+[01:43] various parts there's a scale around the
+
+[01:45] outside that shows the ticks the little
+
+[01:48] lines there's a second scale that shows
+
+[01:52] the numbers the labels inside that if
+
+[01:55] you saw in a previous video we still
+
+[01:57] cannot figure out how to make those
+
+[01:58] label numbers move inward slightly so I
+
+[02:00] just used a second scale that's a bit
+
+[02:03] smaller it seems to be doing the job
+
+[02:05] then there's the arc that comes around
+
+[02:07] the outside which is this the visual bit
+
+[02:09] in the final version of this it doesn't
+
+[02:12] actually look Amber it's just so you can
+
+[02:14] see it underneath this light there's the
+
+[02:17] numerical representation of the same
+
+[02:19] number and then a a very simple arc on
+
+[02:23] the bottom that shows my fuel level and
+
+[02:25] a fuel icon as you can see at the moment
+
+[02:28] as it goes up
+
+[02:31] we're running at 5 frames per second at
+
+[02:37] 96%
+
+[02:39] CPU so it's going very slowly visually
+
+[02:43] and taking up almost everything out of
+
+[02:46] our CPU also this number is supposed to
+
+[02:49] be going from zero through to 160 one at
+
+[02:52] a time you notice if you look at this
+
+[02:55] one it's not actually capturing every
+
+[02:58] single number we've got some that are
+
+[02:59] being being missed and it's because it's
+
+[03:02] not able to actually refresh anywhere
+
+[03:04] near quick enough to show every single
+
+[03:07] value that's coming in now obviously if
+
+[03:09] you have different kind of chips and
+
+[03:11] different kinds of boards the memory and
+
+[03:14] CPU and all that that you have available
+
+[03:16] is going to vary and we're doing this on
+
+[03:18] esp32 S3 so if you're using one of them
+
+[03:21] chances are it's going to be somewhere
+
+[03:24] in the same kind of ballpark but the
+
+[03:26] numbers and the values that we talk
+
+[03:27] about throughout this maybe like
+
+[03:29] slightly subject to change depending on
+
+[03:31] your individual setup like I said in
+
+[03:33] this video we are using the latest live
+
+[03:35] version of lvgl so that's
+
+[03:38] 9.2.2 and everything in here is just as
+
+[03:41] it comes out of the box except for the
+
+[03:43] facts that uh We've turned on
+
+[03:46] performance monitor so that shows the
+
+[03:47] little thing in the middle of the screen
+
+[03:49] and if you're going to play with this to
+
+[03:51] try and get better fps you want to turn
+
+[03:53] that performance monitor on because that
+
+[03:54] will allow you to see the FPS and the
+
+[03:57] CPU usage which is the big things that
+
+[03:58] we're interested in we're going to come
+
+[04:00] back to this file we're not going to
+
+[04:01] change anything in it now but something
+
+[04:04] major can be changed in here that makes
+
+[04:07] a huge Improvement but we'll get to that
+
+[04:09] later on this is the uh Ino file the
+
+[04:12] Arduino ID file that makes up that
+
+[04:15] display uh doesn't really matter what's
+
+[04:18] going on in here most of this isn't
+
+[04:19] being changed uh what we are going to
+
+[04:22] look at to start with is the driver
+
+[04:24] setup because at the moment everything's
+
+[04:27] just running off the internal memory
+
+[04:29] memory and it's not necessarily the most
+
+[04:31] efficient way of doing things so piece
+
+[04:34] of advice number one for increasing the
+
+[04:36] speed is utilizing DNA direct memory
+
+[04:41] access is a special allocation in your
+
+[04:44] RAM that can be directly accessed by
+
+[04:47] peripherals like your SPI your i2c or an
+
+[04:51] LCD driver without having to involve the
+
+[04:55] CPU at all which means those devices can
+
+[04:57] go in and out of RAM and grab that
+
+[04:59] information
+
+[05:00] that they need without having to put
+
+[05:02] extra load on the CPU freeing the CPU up
+
+[05:06] to do other things like increase the
+
+[05:09] frames per second of your graphics
+
+[05:10] driving utilizing it properly is going
+
+[05:13] to reduce your CPU load so it isn't busy
+
+[05:15] copying pixel data to the display that's
+
+[05:17] all being handled by the dma it allows
+
+[05:20] bulk data transfers at high speed which
+
+[05:23] for the most part offers lower latency
+
+[05:26] than using CPU transfers and as you see
+
+[05:28] when we get into double in spoiler alert
+
+[05:31] uh it allows things to happen more
+
+[05:34] simultaneously so one thing can be
+
+[05:36] concentrating on the writing of a buffer
+
+[05:38] and the other one can be concentrating
+
+[05:39] on the transfer of the other buffer that
+
+[05:42] make more sense in a minute so if we get
+
+[05:44] rid
+
+[05:45] of this and we use this line instead
+
+[05:49] which is one I've already been using all
+
+[05:51] this is doing is setting that same chunk
+
+[05:54] same block of data that we're going to
+
+[05:57] be using for the buffer and it's going
+
+[05:59] to be allocating it to dma memory
+
+[06:03] instead of using it in its just regular
+
+[06:05] old internal and because these boards
+
+[06:08] have got such a large amount of dma we
+
+[06:10] can increase the size of the buffer a
+
+[06:12] little bit so in the default one it's
+
+[06:15] one tenth of the screen going to
+
+[06:17] increase this one to one sixth of the
+
+[06:19] screen so let's just see what difference
+
+[06:21] doing just that makes to that FPS is it
+
+[06:24] going to increase it or decrease it or
+
+[06:26] what's it going to do so remember we had
+
+[06:29] five frames a second pretty solidly
+
+[06:32] running at
+
+[06:34] 96% CPU
+
+[06:36] usage just let my little loading
+
+[06:39] animation go through and what do we have
+
+[06:42] now seven frames a second at 95% CPU six
+
+[06:47] 67 frames a second which doesn't seem
+
+[06:50] like a big deal what do you do we've
+
+[06:52] gone from five to seven frames a second
+
+[06:55] but the reality of that is actually just
+
+[06:57] by changing how we've allocated memory
+
+[07:00] we've got a 20 to 40% speed increase
+
+[07:04] which when we start to scale this up and
+
+[07:07] we're talking about much bigger friends
+
+[07:09] per second numbers which we're going to
+
+[07:11] get to does make a sizable difference so
+
+[07:15] if you're using a esp32 like this 100%
+
+[07:20] get it using dma memory for its buffer
+
+[07:23] because it's going to scale a lot better
+
+[07:25] whilst we're in this page we can look at
+
+[07:28] tip number two triple buffering now this
+
+[07:31] is a weird one because I've got mixed
+
+[07:33] results and often it depends on the
+
+[07:35] screen layout which is something we get
+
+[07:37] to in a minute but sometimes I found
+
+[07:39] that it makes no difference sometimes I
+
+[07:42] found it adds another 10 15 20% onto the
+
+[07:45] speed and what we're doing with triple
+
+[07:47] buffering is on this next line here
+
+[07:50] advocating a second buffer and then what
+
+[07:55] this is allowing us to do is basically
+
+[07:56] at the moment as it's working with a
+
+[07:58] single buff screen you've got the screen
+
+[08:01] which is being shown and then lvgl is
+
+[08:04] creating the next frame and then what
+
+[08:07] it's doing is it's swapping that frame
+
+[08:09] in and getting rid of the existing frame
+
+[08:12] and then as it's swapping that frame in
+
+[08:14] it creates the next frame and that does
+
+[08:16] it like that like one at a time which
+
+[08:18] means the transition time between each
+
+[08:21] one should be lower because it's not
+
+[08:23] needing to use all the CPU to do all
+
+[08:25] that stuff like I say I get mixed
+
+[08:27] results with it um I don't think it
+
+[08:30] makes a huge increase for this but we'll
+
+[08:31] look at it anyway so we're just creating
+
+[08:33] this buffer two in exactly the same way
+
+[08:35] on the dma and then lower down the page
+
+[08:38] we when we set the buffers here we have
+
+[08:40] to change this null to use the buffer so
+
+[08:43] use buffer
+
+[08:45] two um and we'll just see what that one
+
+[08:48] does so loading in the new
+
+[08:51] one and no it looks basically exactly
+
+[08:55] the same 7 frames per second at 95% CPU
+
+[08:58] so it hasn't made a
+
+[09:00] huge difference or any really but again
+
+[09:03] that doesn't really matter too much now
+
+[09:05] it's all about how these lots of small
+
+[09:07] changes start to add up until the big
+
+[09:10] changes make a large difference there is
+
+[09:13] one more thing we could look at on this
+
+[09:15] screen but I can guarantee you it'll
+
+[09:18] make things worse and it's the uh render
+
+[09:22] mode here so it's a lot easier to set
+
+[09:24] this in nine than it is in eight but you
+
+[09:26] can change the render mode from partial
+
+[09:29] to full and what that will do is instead
+
+[09:32] of just finding the element of the
+
+[09:34] screen that has changed and swapping
+
+[09:36] that bit out in the buffer it'll redraw
+
+[09:38] the entire screen now it is good if
+
+[09:42] you're getting issues with banding or
+
+[09:44] like if you've got a a meter line and
+
+[09:46] it's moving around you see tearing of
+
+[09:48] the line using full render mode can
+
+[09:52] solve that problem but it will tank your
+
+[09:54] FPS this will go down to two or three if
+
+[09:57] reutilize that and if you use that then
+
+[09:59] you have to use a full size buffer like
+
+[10:03] this not something I'm going to
+
+[10:04] recommend that you do unless you
+
+[10:06] absolutely need to so let's keep things
+
+[10:10] on partial for now um this is part of
+
+[10:14] what I think the big issue we've been
+
+[10:16] having with
+
+[10:17] lvl8 and meters is and when you put too
+
+[10:21] many ticks on a meter it starts to
+
+[10:24] massively slow down the FPS and it's
+
+[10:27] because it thinks
+
+[10:29] the entire meter all of the ticks and
+
+[10:32] all of the outside of it needs to
+
+[10:34] refresh as the needle moves so it's
+
+[10:38] using it as a whole massive area of
+
+[10:41] screen which is trying to refresh
+
+[10:43] instead of just moving the needle it's
+
+[10:46] just like an inefficiency in the way
+
+[10:49] that it's produced fortunately it seems
+
+[10:51] to be something that has been moved away
+
+[10:53] from with scales in lvgl 9 so now that
+
+[10:57] I've successfully transferred everything
+
+[10:59] over to lvgl 9 orbe it having to use a
+
+[11:03] few hacks and workarounds that I don't
+
+[11:05] particularly like but we've got to the
+
+[11:07] end result with scales and with an arc
+
+[11:10] and the efficiency is so much better
+
+[11:13] because those scale elements AR being
+
+[11:16] redrawn every time the associated
+
+[11:19] indicator whether that's an arc or a
+
+[11:21] needle moves it's uh it's it's static
+
+[11:24] which is exactly what it should be so
+
+[11:26] there's a little bonus one in there if
+
+[11:28] you're using using lvg L8 take care when
+
+[11:31] it comes with using meters because they
+
+[11:34] tend to get redrawn all the time and it
+
+[11:37] can absolutely tank your FPS talking
+
+[11:39] about partial screen refreshes leads me
+
+[11:42] on very nicely to actually what you have
+
+[11:44] on your screen how it works for redraws
+
+[11:47] and so what I like to call active and
+
+[11:52] passive component design on this display
+
+[11:55] I would consider this to be having two
+
+[11:58] active components so this Arc moving
+
+[12:01] around the outside is active it's
+
+[12:04] constantly moving it's constantly
+
+[12:06] shifting as is the number in the middle
+
+[12:09] that is another active component whereas
+
+[12:13] the fuel meter at the bottom is
+
+[12:14] something that is not going to change
+
+[12:17] very often and when it does it changes
+
+[12:18] in small amounts it's just an indicator
+
+[12:21] of something that's being monitored it's
+
+[12:23] a passive component so the advice to
+
+[12:26] actually help with that FPS is to try to
+
+[12:30] limit your Active Components your things
+
+[12:32] that do a lot of changing to as few as
+
+[12:36] possible on any one screen like if you
+
+[12:39] had um let's say speed and RPM you might
+
+[12:43] be better off putting them on separate
+
+[12:46] displays so that the way it redraws is
+
+[12:48] minimized like let me show you the
+
+[12:50] difference when I remove the label from
+
+[12:52] the middle of this screen and we just
+
+[12:54] have the one active component and a
+
+[12:57] second one which is a passive component
+
+[12:59] at the bottom without having that middle
+
+[13:01] bit needing to redraw what does that do
+
+[13:03] to the FPS so without that one in the
+
+[13:06] middle might be surprised to see that
+
+[13:09] it's actually just sat at the same value
+
+[13:13] 7 frames a second at 95%
+
+[13:16] CPU so why has changing that not had any
+
+[13:22] effect and it's because this is sat at
+
+[13:27] 95% CPU
+
+[13:29] because of this thing so again we've
+
+[13:32] actually made an improvement that you
+
+[13:34] can't see and it's because something
+
+[13:36] else is taking up the entirety of our
+
+[13:39] CPU so it doesn't allow lvgl the space
+
+[13:44] it needs to grow if you imagine that our
+
+[13:47] entire CPU is 100% if something's taking
+
+[13:49] up 90% of it and that thing has the
+
+[13:52] highest priority then lvgl is never
+
+[13:55] going to get more than that 10% space
+
+[13:59] so what is it and it's actually ESP now
+
+[14:03] and the way it's currently bombarding
+
+[14:05] the wifi input into that asp32 with new
+
+[14:09] data 10 times a second if we get rid of
+
+[14:13] the V3 too for now and bring in the
+
+[14:15] gauges remote this is the uh file that
+
+[14:19] is just on that uh little ESP Dev module
+
+[14:23] right now and all it's doing is it's got
+
+[14:24] a task that's running 10 times a second
+
+[14:27] so every 100 milliseconds each time it's
+
+[14:29] incrementing by one and then when it
+
+[14:31] gets to 160 it resets back to zero and
+
+[14:34] then it just sends that number off so
+
+[14:36] you can see at the bottom here all these
+
+[14:38] numbers getting sent off and that is
+
+[14:40] slowing the CPU down in the receiver so
+
+[14:44] much that nothing else is allowed to
+
+[14:47] optimize itself so FPS tip five is to
+
+[14:52] have caution when it comes to how you're
+
+[14:54] sending data to your gauges assuming
+
+[14:58] it's gauges that you're making whatever
+
+[15:00] it is you know whether it's for
+
+[15:01] automotive or it's whether it's for
+
+[15:02] Something Completely differently if
+
+[15:04] you're bombarding it with information
+
+[15:07] then you're going to really limit how
+
+[15:10] many FPS it's going to be able to show
+
+[15:12] so let's just Harve the speed at which
+
+[15:16] it's sending this information over and
+
+[15:19] what we'll do is the reason I do this is
+
+[15:21] gu is we can then double the amount it
+
+[15:24] increments each time so the arc speed
+
+[15:27] will move the same amount but now it'll
+
+[15:30] be sending half the data how does that
+
+[15:32] affect
+
+[15:33] it okay so we can see the arc stopped
+
+[15:36] because this has stopped broadcasting
+
+[15:38] data and when it stops it drops down to
+
+[15:40] 4% CPU at 33 frames a second so it's
+
+[15:44] like Maxes itself out to 33 FPS here we
+
+[15:48] go it's back on again and there right 15
+
+[15:52] frames a second with only 70 72% CPU so
+
+[15:57] the FPS doubled and the CPU usage has
+
+[16:01] come down
+
+[16:03] 20% and that's just by harving the rate
+
+[16:08] at which data is coming from ESP now the
+
+[16:11] more I use it and the more familiar I
+
+[16:13] get with it the more I realize how
+
+[16:16] resource intensive ESP now is it is
+
+[16:21] fantastic for a lot of things but I
+
+[16:23] think long term for me for what I'm
+
+[16:26] doing with my car some something like
+
+[16:29] RPM though or speed or oil pressure
+
+[16:32] something that needs to update a lot and
+
+[16:34] frequently like many times a second is
+
+[16:37] probably going to be best wired in
+
+[16:39] directly to hardware seral and not
+
+[16:42] utilizing ESP now because it is so
+
+[16:45] system intensive now I don't have a
+
+[16:48] board here right now they've been
+
+[16:50] ordered but I don't have them here with
+
+[16:52] Hardware can setup to show you how that
+
+[16:55] will look so what we're going to do is
+
+[16:57] just simulate it we're going to turn off
+
+[17:00] the ESP now board and then back on our
+
+[17:03] display and down at the bottom very
+
+[17:05] simply I'm just going to allow this bit
+
+[17:08] of code back in so all this is doing is
+
+[17:11] uh we've got a count 20 uh because this
+
+[17:15] Loop runs in five millisecond delays so
+
+[17:19] by putting a 20 count in means runs
+
+[17:21] every 20th Loop so every 100 millisecs
+
+[17:25] which is the same as what we were
+
+[17:26] originally sending every 100 millisecond
+
+[17:29] and then we just do exactly the same we
+
+[17:31] increment a value by one and send that
+
+[17:34] data to update speed it's just doing
+
+[17:37] exactly the same thing but we're
+
+[17:39] removing any Reliance on ESP now so how
+
+[17:43] does that affect things so as this lows
+
+[17:46] up we'll see we get Now new value
+
+[17:49] is 30 33 frames per second at 10
+
+[17:56] 12% CPU basically the frames per second
+
+[18:00] in default lvgl is set to 33 as the
+
+[18:04] maximum so it's now maxing itself out
+
+[18:07] with frames as quick as lvgl is set up
+
+[18:10] to handle them at a really really low
+
+[18:13] CPU usage it's it's not finding this
+
+[18:15] difficult at all and it's at this point
+
+[18:18] where the things that we've already done
+
+[18:20] switching to dma and doing the triple
+
+[18:23] buffering are now starting to have a
+
+[18:26] greater effect without them we be
+
+[18:29] looking more at fpss in the upper 20s
+
+[18:32] but because we're utilizing all of these
+
+[18:34] different things together and not maxing
+
+[18:37] out our CPU with something blasting it
+
+[18:39] 10 times a second everything is able to
+
+[18:42] start performing to its theoretical
+
+[18:44] limit and just to show that it's a lot
+
+[18:46] better we're going to put the
+
+[18:48] uh label we'll put the uh Center label
+
+[18:54] back in because I miss it there we go
+
+[18:57] even with the middle one you notice
+
+[18:59] we're still getting 33 frames per second
+
+[19:02] and now we're able to see every single
+
+[19:05] number there's there's never one that is
+
+[19:07] missed out because it's not getting too
+
+[19:11] overloaded so where do we go from here
+
+[19:13] we've hit the limit of what lvgl is
+
+[19:16] capable of out of the box with a couple
+
+[19:19] of very small changes we can start to
+
+[19:24] make it even more efficient and we need
+
+[19:26] to do that in the LV comp file
+
+[19:29] right at the top we've got our memory
+
+[19:33] allocation we're not going to need to
+
+[19:35] change that you might if you start to
+
+[19:37] use like smaller or larger buffers and
+
+[19:40] if say you were using full screen
+
+[19:42] buffering you might need to change this
+
+[19:44] memory allocation because it won't have
+
+[19:47] enough size in order to hold like large
+
+[19:50] full screen buffers um but for what
+
+[19:53] we're doing right now it's fine the
+
+[19:55] thing we want to do is this the display
+
+[19:58] ref refesh period because it's currently
+
+[19:59] set to 30 and it's 30 milliseconds and a
+
+[20:03] 30 millisecond refresh period is 1
+
+[20:07] second ided by 30 milliseconds is 33 so
+
+[20:12] this is what gives us 33 frames a second
+
+[20:16] so if we reduce that value down to 10 we
+
+[20:21] suddenly have a maximum possible frames
+
+[20:24] per second of 100 which is potentially a
+
+[20:28] really big increase will it get anywhere
+
+[20:30] near that there's a way to find out
+
+[20:33] animation is 90
+
+[20:35] odd and as this goes in what do we get
+
+[20:37] up
+
+[20:39] to 80 something 80 yard frames per
+
+[20:43] second at
+
+[20:45] 22%
+
+[20:47] CPU that is drastically higher than what
+
+[20:51] it was so now we can just ask ourselves
+
+[20:53] well are we at the theoretical limit if
+
+[20:56] it's not hitting the maximum FPS s maybe
+
+[20:59] we're at the theoretical limit so we can
+
+[21:02] test that by increasing the speed even
+
+[21:05] further so we increase that down to 5
+
+[21:09] milliseconds and then seeing if that
+
+[21:12] actually further increases the frames
+
+[21:14] per second because there's a theoretical
+
+[21:17] limit based on how fast it can send the
+
+[21:19] information out but there's also a point
+
+[21:22] of diminishing returns where you're
+
+[21:23] sending information out so much faster
+
+[21:27] but you don't actually see it any
+
+[21:29] quicker it's like are you really going
+
+[21:32] to perceive much of a difference between
+
+[21:35] 30 frames per second and 120 frames per
+
+[21:38] second on a cinema screen maybe on a
+
+[21:41] gauge like that maybe not so where do we
+
+[21:44] find the
+
+[21:45] balance we'll look at that in a sec
+
+[21:47] right as you can see we're still going
+
+[21:51] up and as it loads in 160 frames per
+
+[21:56] second at
+
+[21:59] 24 25% CPU are we experiencing
+
+[22:04] diminishing returns and I think a good
+
+[22:05] way to do that is to put a few views
+
+[22:08] side by side and see what we think we'll
+
+[22:11] put these three things side by side
+
+[22:12] first one the default 30 milliseconds
+
+[22:15] this is how it is going to look when
+
+[22:17] it's a the default 33 frames a second
+
+[22:19] maximum then there's 10 milliseconds
+
+[22:22] with a 100 frames per second potential
+
+[22:25] maximum and 5 milliseconds with the 200
+
+[22:29] frames per second maximum let's just
+
+[22:31] take a look at them all together so what
+
+[22:33] do you think do you notice a big
+
+[22:35] difference between them I think there is
+
+[22:37] some but it's very very marginal and
+
+[22:41] with like a screen this size You' got to
+
+[22:42] ask yourself at what point does it yeah
+
+[22:45] have diminishing returns you just you
+
+[22:47] don't get the benefit from speeding it
+
+[22:49] up anymore personally I think the sweet
+
+[22:52] spot is about 20 milliseconds so giving
+
+[22:55] ourselves a theoretical maximum of 50
+
+[22:58] FPS everything seems to just work quite
+
+[23:01] nicely animations look relatively slick
+
+[23:04] but it's not using tons and tons of the
+
+[23:07] system resource I think as you start to
+
+[23:09] increase from there into like you know
+
+[23:12] 60 100 and Beyond FPS you don't notice
+
+[23:15] any difference and and it's probably
+
+[23:17] because if the steps in a gauge like
+
+[23:19] this are moving so small so if you're
+
+[23:20] moving an arc from dead vertical to one
+
+[23:23] degree to the side of vertical how many
+
+[23:27] frames can that theore ially be how
+
+[23:29] smooth can you make it it's going to be
+
+[23:31] what four six frames something like that
+
+[23:34] there's only a there's a limit of how
+
+[23:36] smooth you can make it look and so yeah
+
+[23:39] I think the sweet spot is about 20
+
+[23:41] milliseconds so those are my like
+
+[23:45] sixish bits of advice for getting the
+
+[23:47] most FPS out of lvgl 9 in particular
+
+[23:51] utilize dma for the buffer and get rid
+
+[23:54] of that necessity for the CPU to handle
+
+[23:57] all of that play with using both double
+
+[23:59] and triple buffers see which one suits
+
+[24:02] best I actually prefer in this setup
+
+[24:05] just using a single buffer seems to work
+
+[24:07] perfectly fine limit your active versus
+
+[24:10] your passive components so you're not
+
+[24:12] having too many elements on too many
+
+[24:15] different parts of the screen update at
+
+[24:17] once because the smaller the update
+
+[24:20] areas are the faster the partial
+
+[24:22] refreshes happen and as part of that if
+
+[24:24] you're using meters in lvgl 8 take care
+
+[24:27] with them minimize your number of ticks
+
+[24:29] it'll massively help you out look at
+
+[24:31] ways you can remove really CPU intensive
+
+[24:34] things like Wi-Fi and uh Bluetooth stuff
+
+[24:38] like that that you know can potentially
+
+[24:40] bombard and overload all of the CPU not
+
+[24:43] allowing it to have any buffer or
+
+[24:46] breathing space to render things really
+
+[24:48] quickly and play with that refresh
+
+[24:50] period reduce it to a point where you
+
+[24:52] think you're getting a good return and
+
+[24:54] then don't worry about reducing it
+
+[24:56] anymore you're probably a lot better off
+
+[24:58] we started at 5 frames per second during
+
+[25:01] this example and we got it at the end up
+
+[25:03] to 150 we're probably going to settle
+
+[25:06] somewhere around 50 and that's a 10
+
+[25:09] times Improvement so all these small
+
+[25:11] changes all come together to uh make a
+
+[25:14] massive Improvement to how the thing
+
+[25:15] looks visually over the next week or two
+
+[25:17] I am finishing these gauges finally and
+
+[25:20] we'll look at the 3D printed elements
+
+[25:23] that are going to hold these in the car
+
+[25:24] in the custom display that I made for
+
+[25:26] them and actually hook them all up to
+
+[25:29] Hardware can and then we'll be able to
+
+[25:30] see all of the fruition of the last
+
+[25:34] three months of working on this come
+
+[25:36] together as they get installed in the
+
+[25:38] car finally so I'm I'm not ready I kind
+
+[25:42] of almost don't believe it's going to
+
+[25:45] end fortunately I do have the really big
+
+[25:48] displays in front of me to do too and
+
+[25:50] over the next couple of weeks we're
+
+[25:52] going to look at the new ESP 32 P4 chip
+
+[25:56] four large screens massively more
+
+[25:59] powerful than something like an S3 is it
+
+[26:01] going to be a massive game Cher for
+
+[26:03] creating these screens I think it might
+
+[26:05] be but we'll see that in a bit more
+
+[26:07] detail in the next couple of weeks as
+
+[26:09] always if you have any questions about
+
+[26:12] this kind of stuff feel free to stick
+
+[26:13] them in the comments and I'll try and
+
+[26:14] get to them whenever I can or if you
+
+[26:17] want to like chat directly or talk about
+
+[26:19] your projects or get more updates about
+
+[26:22] these ongoing projects you can join my
+
+[26:24] Discord like I say the link is in the
+
+[26:26] description we've got a few hundred
+
+[26:27] people now there
+
+[26:29] fantastically actively sharing all their
+
+[26:31] ongoing projects and it's just great to
+
+[26:33] see so many people collaborating on on
+
+[26:35] what they're doing together anyway
+
+[26:37] that's it for this one I hope it's help
+
+[26:39] if you've been struggling to get the
+
+[26:41] most out of lvgl and hopefully these
+
+[26:44] tips will help you get more out of it
+
+[26:46] whatever you do with the rest of your
+
+[26:47] day folks have a Wiki one and I'll see
+
+[26:49] you in the next video same time
+
+[26:51] Wednesday 2 p.m take it easy peeps
+
+[26:57] byebye e
