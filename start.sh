@@ -2,34 +2,63 @@
 
 # Railway startup script - runs Python proxy and Node backend
 
-set -e
-
 export GTFS_PROXY_BASE="http://127.0.0.1:8000"
 export GTFS_PROXY_MODE="nyctrains"
 export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION="python"
 export PROTOBUF_FORCE_PYTHON="1"
 export PYTHONPATH="$(pwd):$PYTHONPATH"
 
-echo "Activating Python virtual environment..."
+echo "===== Activating Python virtual environment ====="
 source /tmp/venv/bin/activate
 
-echo "Starting Python proxy on http://127.0.0.1:8000 in background..."
-cd "$(pwd)"
-python proxy/run_proxy.py &
+echo "===== Starting Python proxy on http://127.0.0.1:8000 ====="
+python proxy/run_proxy.py > /tmp/proxy.log 2>&1 &
 PROXY_PID=$!
+echo "Proxy PID: $PROXY_PID"
 
-echo "Waiting for proxy to be ready..."
+# Give proxy time to start
+sleep 3
+
+# Check if proxy process is still running
+if ! ps -p $PROXY_PID > /dev/null 2>&1; then
+    echo "ERROR: Proxy process died immediately!"
+    echo "===== Proxy logs ====="
+    cat /tmp/proxy.log || echo "No logs available"
+    exit 1
+fi
+
+echo "===== Waiting for proxy to be ready (checking port 8000) ====="
 for i in {1..30}; do
-  if curl -s http://127.0.0.1:8000/subway/bdfm/json > /dev/null 2>&1; then
-    echo "Proxy is ready!"
+  # Use netcat or python to check if port is open
+  if python -c "import socket; s = socket.socket(); s.settimeout(1); s.connect(('127.0.0.1', 8000)); s.close()" 2>/dev/null; then
+    echo "✓ Proxy is ready on port 8000!"
     break
   fi
+  
+  # Check if process is still alive
+  if ! ps -p $PROXY_PID > /dev/null 2>&1; then
+    echo "ERROR: Proxy process died during startup!"
+    echo "===== Proxy logs ====="
+    cat /tmp/proxy.log || echo "No logs available"
+    exit 1
+  fi
+  
   echo "Waiting for proxy... ($i/30)"
-  sleep 1
+  sleep 2
 done
 
-echo "Starting Node backend on port ${PORT:-3001}..."
+# Final check
+if ! python -c "import socket; s = socket.socket(); s.settimeout(1); s.connect(('127.0.0.1', 8000)); s.close()" 2>/dev/null; then
+    echo "ERROR: Proxy still not ready after 60 seconds"
+    echo "===== Proxy logs ====="
+    cat /tmp/proxy.log || echo "No logs available"
+    exit 1
+fi
+
+echo "===== Starting Node backend on port ${PORT:-3001} ====="
+# Show both proxy and node logs
+tail -f /tmp/proxy.log &
 node backend/server.js
 
-# Cleanup proxy on exit
+# Cleanup
 kill $PROXY_PID 2>/dev/null || true
