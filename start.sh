@@ -10,8 +10,8 @@ export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION="python"
 export PROTOBUF_FORCE_PYTHON="1"
 export PYTHONPATH="$(pwd):$PYTHONPATH"
 
-echo "Installing Python dependencies..."
-pip install -r proxy/requirements.txt
+echo "Activating Python virtual environment..."
+source /tmp/venv/bin/activate
 
 echo "Starting Python proxy on http://127.0.0.1:8000 in background..."
 cd "$(pwd)"

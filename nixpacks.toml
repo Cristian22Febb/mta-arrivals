@@ -1,10 +1,11 @@
 [phases.setup]
-nixPkgs = ["nodejs-18_x", "python39", "python39Packages.pip"]
+nixPkgs = ["nodejs-18_x", "python39"]
 
 [phases.install]
 cmds = [
   "npm install",
-  "pip install -r proxy/requirements.txt"
+  "python -m venv /tmp/venv",
+  "/tmp/venv/bin/pip install -r proxy/requirements.txt"
 ]
 
 [start]
