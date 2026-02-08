@@ -44,9 +44,8 @@ logs/
 esp32-crowpanel/
 esp327inchdemo/
 
-# User data
+# User data (users.json contains user answers/progress)
 backend/users.json
-backend/quizzes.json
 
 # Large GTFS files (>100MB - exceeds GitHub limit)
 /stop_times.txt
