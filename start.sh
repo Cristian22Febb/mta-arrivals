@@ -7,6 +7,7 @@ export GTFS_PROXY_MODE="nyctrains"
 export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION="python"
 export PROTOBUF_FORCE_PYTHON="1"
 export PYTHONPATH="$(pwd):$PYTHONPATH"
+export NYCTRAINS_RESOURCE_DIR="/app/backend/gtfs"
 
 # Add C++ standard library to LD_LIBRARY_PATH for numpy
 # Find libstdc++ in nix store and add its directory

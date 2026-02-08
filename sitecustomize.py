@@ -23,19 +23,25 @@ if os.environ.get("PROTOBUF_FORCE_PYTHON", "1") == "1":
 
 def _patch_nyctrains_resources() -> None:
     # Point nyctrains to the local GTFS resources we already have.
-    root = os.path.dirname(__file__)
-    local_resources = os.path.join(root, "backend", "gtfs")
+    # Use environment variable or fallback to /app/backend/gtfs
+    local_resources = os.environ.get("NYCTRAINS_RESOURCE_DIR", "/app/backend/gtfs")
+    
+    print(f"[sitecustomize] Attempting to patch nyctrains RESOURCE_DIR to: {local_resources}")
+    
     if not os.path.exists(local_resources):
+        print(f"[sitecustomize] WARNING: Resource directory not found: {local_resources}")
         return
 
     try:
         import nyctrains.data_loader as data_loader
         import nyctrains.static_gtfs as static_gtfs
-    except Exception:
+        
+        data_loader.RESOURCE_DIR = local_resources
+        static_gtfs.RESOURCE_DIR = local_resources
+        print(f"[sitecustomize] SUCCESS: Patched nyctrains to use {local_resources}")
+    except Exception as e:
+        print(f"[sitecustomize] ERROR: Failed to patch nyctrains: {e}")
         return
-
-    data_loader.RESOURCE_DIR = local_resources
-    static_gtfs.RESOURCE_DIR = local_resources
 
 
 _patch_nyctrains_resources()
