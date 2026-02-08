@@ -22,6 +22,11 @@ fi
 echo "===== Activating Python virtual environment ====="
 source /tmp/venv/bin/activate
 
+# Ensure sitecustomize.py is in Python's path and will be loaded
+# Copy it to the venv's site-packages so Python loads it automatically
+cp sitecustomize.py /tmp/venv/lib/python3.11/site-packages/
+echo "Copied sitecustomize.py to venv site-packages"
+
 echo "===== Starting Python proxy on http://127.0.0.1:8000 ====="
 python proxy/run_proxy.py > /tmp/proxy.log 2>&1 &
 PROXY_PID=$!
