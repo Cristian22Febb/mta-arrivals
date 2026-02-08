@@ -8,6 +8,14 @@ export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION="python"
 export PROTOBUF_FORCE_PYTHON="1"
 export PYTHONPATH="$(pwd):$PYTHONPATH"
 
+# Add gcc libraries to LD_LIBRARY_PATH for numpy
+# Find the gcc lib directory and add it to LD_LIBRARY_PATH
+GCC_LIB_DIR=$(find /nix/store -maxdepth 1 -name '*gcc*' -type d 2>/dev/null | grep -v 'wrapper' | head -1)
+if [ -d "$GCC_LIB_DIR/lib" ]; then
+    export LD_LIBRARY_PATH="$GCC_LIB_DIR/lib:$LD_LIBRARY_PATH"
+    echo "Added GCC lib directory to LD_LIBRARY_PATH: $GCC_LIB_DIR/lib"
+fi
+
 echo "===== Activating Python virtual environment ====="
 source /tmp/venv/bin/activate
 
