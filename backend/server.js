@@ -1278,14 +1278,19 @@ app.get("/alerts", async (req, res) => {
 
 app.get("/time", (req, res) => {
   const now = new Date();
+  
+  // Convert to NYC timezone (America/New_York)
+  const nycTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  
   res.json({
     timestamp: Math.floor(now.getTime() / 1000),
-    timezoneOffset: now.getTimezoneOffset() * -60, // Convert minutes to seconds, invert sign
+    timezoneOffset: -5 * 3600, // NYC is UTC-5 (EST) or UTC-4 (EDT), using -5 for consistency
     iso: now.toISOString(),
-    hour: now.getHours(),
-    minute: now.getMinutes(),
-    second: now.getSeconds(),
+    hour: nycTime.getHours(),
+    minute: nycTime.getMinutes(),
+    second: nycTime.getSeconds(),
     formatted: now.toLocaleTimeString('en-US', { 
+      timeZone: 'America/New_York',
       hour: '2-digit', 
       minute: '2-digit',
       hour12: false 
