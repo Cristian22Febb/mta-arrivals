@@ -8,12 +8,15 @@ export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION="python"
 export PROTOBUF_FORCE_PYTHON="1"
 export PYTHONPATH="$(pwd):$PYTHONPATH"
 
-# Add gcc libraries to LD_LIBRARY_PATH for numpy
-# Find the gcc lib directory and add it to LD_LIBRARY_PATH
-GCC_LIB_DIR=$(find /nix/store -maxdepth 1 -name '*gcc*' -type d 2>/dev/null | grep -v 'wrapper' | head -1)
-if [ -d "$GCC_LIB_DIR/lib" ]; then
-    export LD_LIBRARY_PATH="$GCC_LIB_DIR/lib:$LD_LIBRARY_PATH"
-    echo "Added GCC lib directory to LD_LIBRARY_PATH: $GCC_LIB_DIR/lib"
+# Add C++ standard library to LD_LIBRARY_PATH for numpy
+# Find libstdc++ in nix store and add its directory
+LIBSTDCXX_PATH=$(find /nix/store -name "libstdc++.so.6" -type f 2>/dev/null | head -1)
+if [ -n "$LIBSTDCXX_PATH" ]; then
+    LIBSTDCXX_DIR=$(dirname "$LIBSTDCXX_PATH")
+    export LD_LIBRARY_PATH="$LIBSTDCXX_DIR:$LD_LIBRARY_PATH"
+    echo "Added C++ lib directory to LD_LIBRARY_PATH: $LIBSTDCXX_DIR"
+else
+    echo "WARNING: libstdc++.so.6 not found in /nix/store"
 fi
 
 echo "===== Activating Python virtual environment ====="
