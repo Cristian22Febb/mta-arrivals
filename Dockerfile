@@ -27,7 +27,8 @@ ENV PYTHONPATH="/app"
 ENV NYCTRAINS_RESOURCE_DIR="/app/backend/gtfs"
 
 # Copy sitecustomize to Python's site-packages
-RUN cp sitecustomize.py $(python -c "import site; print(site.getsitepackages()[0])")/
+RUN SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])") && \
+    cp sitecustomize.py "$SITE_PACKAGES/"
 
 # Start script
 CMD ["bash", "start.sh"]

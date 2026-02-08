@@ -26,10 +26,11 @@ def _patch_nyctrains_resources() -> None:
     # Use environment variable or fallback to /app/backend/gtfs
     local_resources = os.environ.get("NYCTRAINS_RESOURCE_DIR", "/app/backend/gtfs")
     
-    print(f"[sitecustomize] Attempting to patch nyctrains RESOURCE_DIR to: {local_resources}")
+    import sys
+    print(f"[sitecustomize] Attempting to patch nyctrains RESOURCE_DIR to: {local_resources}", file=sys.stderr)
     
     if not os.path.exists(local_resources):
-        print(f"[sitecustomize] WARNING: Resource directory not found: {local_resources}")
+        print(f"[sitecustomize] WARNING: Resource directory not found: {local_resources}", file=sys.stderr)
         return
 
     try:
@@ -38,9 +39,9 @@ def _patch_nyctrains_resources() -> None:
         
         data_loader.RESOURCE_DIR = local_resources
         static_gtfs.RESOURCE_DIR = local_resources
-        print(f"[sitecustomize] SUCCESS: Patched nyctrains to use {local_resources}")
+        print(f"[sitecustomize] SUCCESS: Patched nyctrains to use {local_resources}", file=sys.stderr)
     except Exception as e:
-        print(f"[sitecustomize] ERROR: Failed to patch nyctrains: {e}")
+        print(f"[sitecustomize] ERROR: Failed to patch nyctrains: {e}", file=sys.stderr)
         return
 
 
