@@ -1595,7 +1595,7 @@ app.post('/device/crash-log', (req, res) => {
     console.log(crashLog);
     console.log('========================================\n');
     
-    // Optionally save to file
+    // Save to file
     const fs = require('fs');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     fs.appendFileSync('crash_logs.txt', `\n[${timestamp}]\n${crashLog}\n`);
@@ -1603,6 +1603,46 @@ app.post('/device/crash-log', (req, res) => {
     res.json({ success: true, message: 'Crash log received' });
   } catch (error) {
     console.error('Error receiving crash log:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API endpoint to read crash logs
+app.get('/api/crash-logs', (req, res) => {
+  try {
+    const fs = require('fs');
+    
+    if (!fs.existsSync('crash_logs.txt')) {
+      return res.json({ logs: '', count: 0 });
+    }
+    
+    const logs = fs.readFileSync('crash_logs.txt', 'utf8');
+    const crashCount = (logs.match(/========== CRASH LOG ==========/g) || []).length;
+    
+    res.json({ 
+      logs: logs,
+      count: crashCount,
+      fileSize: Buffer.byteLength(logs, 'utf8')
+    });
+  } catch (error) {
+    console.error('Error reading crash logs:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API endpoint to clear crash logs
+app.delete('/api/crash-logs', (req, res) => {
+  try {
+    const fs = require('fs');
+    
+    if (fs.existsSync('crash_logs.txt')) {
+      fs.unlinkSync('crash_logs.txt');
+      console.log('Crash logs cleared');
+    }
+    
+    res.json({ success: true, message: 'Crash logs cleared' });
+  } catch (error) {
+    console.error('Error clearing crash logs:', error);
     res.status(500).json({ error: error.message });
   }
 });
