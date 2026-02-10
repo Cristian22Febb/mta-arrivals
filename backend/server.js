@@ -31,6 +31,7 @@ let zipcodeCache = null;
 
 app.use(cors());
 app.use(express.json());  // Parse JSON bodies for POST requests
+app.use(express.text());  // Parse text/plain bodies for crash logs
 app.use(express.static(FRONTEND_DIR));
 
 function fileIsMissingOrEmpty(filePath) {
@@ -1580,6 +1581,28 @@ app.get("/quiz/status/:device", (req, res) => {
       category: todayQuiz ? todayQuiz.category : null
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint to receive crash logs from ESP32
+app.post('/device/crash-log', (req, res) => {
+  try {
+    const crashLog = req.body;
+    console.log('\n========================================');
+    console.log('ESP32 CRASH LOG RECEIVED:');
+    console.log('========================================');
+    console.log(crashLog);
+    console.log('========================================\n');
+    
+    // Optionally save to file
+    const fs = require('fs');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    fs.appendFileSync('crash_logs.txt', `\n[${timestamp}]\n${crashLog}\n`);
+    
+    res.json({ success: true, message: 'Crash log received' });
+  } catch (error) {
+    console.error('Error receiving crash log:', error);
     res.status(500).json({ error: error.message });
   }
 });
