@@ -1386,9 +1386,16 @@ const LEADERBOARD_PATH = path.join(__dirname, "leaderboard.json");
 
 function getTodayDateKey() {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+  // Convert to NYC timezone to determine "today"
+  const nycDateString = now.toLocaleDateString('en-US', { 
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  
+  // Parse "MM/DD/YYYY" to "YYYY-MM-DD"
+  const [month, day, year] = nycDateString.split('/');
   return `${year}-${month}-${day}`;
 }
 
