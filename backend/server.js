@@ -8,6 +8,7 @@ const { parse } = require("csv-parse");
 const { parse: parseSync } = require("csv-parse/sync");
 const GtfsRealtimeBindings = require("gtfs-realtime-bindings");
 const { FEEDS, getFeedsForRoutes } = require("./feeds");
+const cacheManager = require("./cacheManager");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -33,6 +34,15 @@ app.use(cors());
 app.use(express.json());  // Parse JSON bodies for POST requests
 app.use(express.text());  // Parse text/plain bodies for crash logs
 app.use(express.static(FRONTEND_DIR));
+
+// Centralized upstream snapshot cache (boot once)
+cacheManager.configure({
+  apiKey: process.env.MTA_API_KEY || "",
+  gtfsProxyBase: GTFS_PROXY_BASE,
+  gtfsProxyMode: GTFS_PROXY_MODE,
+  logger: console
+});
+cacheManager.start();
 
 function fileIsMissingOrEmpty(filePath) {
   try {
@@ -754,6 +764,84 @@ async function fetchArrivals(stopIds, routeList, apiKey) {
   return arrivals.slice(0, 5);
 }
 
+function fetchArrivalsFromSnapshot(stopIds, routeList) {
+  if (!Array.isArray(stopIds) || stopIds.length === 0) {
+    return [];
+  }
+
+  const snapshot = cacheManager.getArrivalsSnapshot();
+  const feedKeys = getFeedsForRoutes(routeList);
+  const feedMessages = feedKeys
+    .map((feedKey) => (snapshot && snapshot.feeds ? snapshot.feeds[feedKey] : null))
+    .filter(Boolean);
+
+  if (feedMessages.length === 0) {
+    return [];
+  }
+
+  const arrivals = [];
+  feedMessages.forEach((message) => {
+    if (!message || !message.entity) return;
+    message.entity.forEach((entity) => {
+      const update = getTripUpdate(entity);
+      if (!update || !update.trip) return;
+      const routeId = getRouteId(update.trip);
+      if (!routeId) return;
+      const normalizedRoute = normalizeRoute(routeId);
+      if (routeList.length > 0 && !routeList.includes(normalizedRoute)) return;
+
+      const destination = getDestinationName(update);
+      getStopTimeUpdates(update).forEach((stopUpdate) => {
+        const stopId = getStopId(stopUpdate);
+        if (!stopIds.includes(stopId)) return;
+        const arrival = getArrivalTime(stopUpdate);
+        if (!arrival) return;
+        arrivals.push({
+          route: displayRoute(routeId),
+          arrival: Number(arrival),
+          destination: destination || null
+        });
+      });
+    });
+  });
+
+  arrivals.sort((a, b) => a.arrival - b.arrival);
+  return arrivals.slice(0, 5);
+}
+
+function collectAlertsFromSnapshot(routeList, stopList, stationList) {
+  const snapshot = cacheManager.getAlertsSnapshot();
+  const alertMessage = snapshot && snapshot.feed ? snapshot.feed : null;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const alertMap = new Map();
+  if (alertMessage && alertMessage.entity) {
+    alertMessage.entity.forEach((entity) => {
+      const alert = entity.alert || entity.Alert || null;
+      if (!alert) return;
+      if (!isAlertActive(alert, nowSeconds)) return;
+      const informed = alert.informedEntity || alert.informed_entity || [];
+      if (!alertMatches(informed, routeList, stopList, stationList)) return;
+      const header = getAlertHeader(alert);
+      const description = getAlertDescription(alert);
+      if (!header && !description) return;
+      const routesForAlert = getAlertRoutes(informed);
+      const effect = getAlertEffect(alert);
+      const id = entity.id || `${header}-${description}`;
+      const key = normalizeAlertText(header);
+      const existing = alertMap.get(key);
+      if (existing) {
+        const mergedRoutes = new Set([...(existing.routes || []), ...routesForAlert]);
+        existing.routes = Array.from(mergedRoutes).sort();
+        if (!existing.effect && effect) existing.effect = effect;
+        if (!existing.id && id) existing.id = id;
+      } else {
+        alertMap.set(key, { id, header, description, routes: routesForAlert, effect });
+      }
+    });
+  }
+  return Array.from(alertMap.values());
+}
+
 async function fetchAlertsFeed(apiKey) {
   const options = apiKey
     ? { headers: { "x-api-key": apiKey } }
@@ -997,21 +1085,20 @@ app.get("/device/status", async (req, res) => {
       : [];
     const { north, south } = splitDirections(station.stopIds);
     const [northArrivals, southArrivals, alerts, weather, location] = await Promise.all([
-      fetchArrivals(north, routeList, apiKey),
-      fetchArrivals(south, routeList, apiKey),
-      collectAlerts(
+      Promise.resolve(fetchArrivalsFromSnapshot(north, routeList)),
+      Promise.resolve(fetchArrivalsFromSnapshot(south, routeList)),
+      Promise.resolve(collectAlertsFromSnapshot(
         routeList,
         station.stopIds,
         Array.from(
           new Set(station.stopIds.map((stopId) => stopId.replace(/[NS]$/, "")))
         ),
-        apiKey
-      ),
+      )),
       station.lat !== null && station.lon !== null
-        ? fetchWeather(station.lat, station.lon)
+        ? cacheManager.getWeather(station.lat, station.lon, fetchWeather)
         : null,
       station.lat !== null && station.lon !== null
-        ? reverseGeocode(station.lat, station.lon)
+        ? cacheManager.getReverseGeocode(station.lat, station.lon, reverseGeocode)
         : "New York, NY"
     ]);
     
