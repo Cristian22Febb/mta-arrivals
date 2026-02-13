@@ -764,12 +764,12 @@ async function fetchArrivals(stopIds, routeList, apiKey) {
   return arrivals.slice(0, 5);
 }
 
-function fetchArrivalsFromSnapshot(stopIds, routeList) {
+function fetchArrivalsFromSnapshot(stopIds, routeList, arrivalsSnapshot = null) {
   if (!Array.isArray(stopIds) || stopIds.length === 0) {
     return [];
   }
 
-  const snapshot = cacheManager.getArrivalsSnapshot();
+  const snapshot = arrivalsSnapshot || cacheManager.getArrivalsSnapshot();
   const feedKeys = getFeedsForRoutes(routeList);
   const feedMessages = feedKeys
     .map((feedKey) => (snapshot && snapshot.feeds ? snapshot.feeds[feedKey] : null))
@@ -809,8 +809,8 @@ function fetchArrivalsFromSnapshot(stopIds, routeList) {
   return arrivals.slice(0, 5);
 }
 
-function collectAlertsFromSnapshot(routeList, stopList, stationList) {
-  const snapshot = cacheManager.getAlertsSnapshot();
+function collectAlertsFromSnapshot(routeList, stopList, stationList, alertsSnapshot = null) {
+  const snapshot = alertsSnapshot || cacheManager.getAlertsSnapshot();
   const alertMessage = snapshot && snapshot.feed ? snapshot.feed : null;
   const nowSeconds = Math.floor(Date.now() / 1000);
   const alertMap = new Map();
@@ -1159,44 +1159,48 @@ app.get("/device/dual-status", async (req, res) => {
           .filter(Boolean)
           .map(normalizeRoute)
       : [];
+
+    // Read snapshots once so both stations use the same cached data view
+    const arrivalsSnapshot = cacheManager.getArrivalsSnapshot();
+    const alertsSnapshot = cacheManager.getAlertsSnapshot();
     
     // Fetch data for station 1 with its own route filter
     const { north: north1, south: south1 } = splitDirections(station1.stopIds);
     const [northArrivals1, southArrivals1, alerts1] = await Promise.all([
-      fetchArrivals(north1, routeList1, apiKey),
-      fetchArrivals(south1, routeList1, apiKey),
-      collectAlerts(
+      Promise.resolve(fetchArrivalsFromSnapshot(north1, routeList1, arrivalsSnapshot)),
+      Promise.resolve(fetchArrivalsFromSnapshot(south1, routeList1, arrivalsSnapshot)),
+      Promise.resolve(collectAlertsFromSnapshot(
         routeList1,
         station1.stopIds,
         Array.from(
           new Set(station1.stopIds.map((stopId) => stopId.replace(/[NS]$/, "")))
         ),
-        apiKey
-      )
+        alertsSnapshot
+      ))
     ]);
     
     // Fetch data for station 2 with its own route filter
     const { north: north2, south: south2 } = splitDirections(station2.stopIds);
     const [northArrivals2, southArrivals2, alerts2] = await Promise.all([
-      fetchArrivals(north2, routeList2, apiKey),
-      fetchArrivals(south2, routeList2, apiKey),
-      collectAlerts(
+      Promise.resolve(fetchArrivalsFromSnapshot(north2, routeList2, arrivalsSnapshot)),
+      Promise.resolve(fetchArrivalsFromSnapshot(south2, routeList2, arrivalsSnapshot)),
+      Promise.resolve(collectAlertsFromSnapshot(
         routeList2,
         station2.stopIds,
         Array.from(
           new Set(station2.stopIds.map((stopId) => stopId.replace(/[NS]$/, "")))
         ),
-        apiKey
-      )
+        alertsSnapshot
+      ))
     ]);
     
     // Fetch weather and location (use station1's location)
     const [weather, location] = await Promise.all([
       station1.lat !== null && station1.lon !== null
-        ? fetchWeather(station1.lat, station1.lon)
+        ? cacheManager.getWeather(station1.lat, station1.lon, fetchWeather)
         : null,
       station1.lat !== null && station1.lon !== null
-        ? reverseGeocode(station1.lat, station1.lon)
+        ? cacheManager.getReverseGeocode(station1.lat, station1.lon, reverseGeocode)
         : "New York, NY"
     ]);
     
