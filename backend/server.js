@@ -1683,10 +1683,36 @@ app.get("/quiz/status/:device", (req, res) => {
   }
 });
 
+function normalizeCrashLogPayload(payload) {
+  if (payload === undefined || payload === null) {
+    return "";
+  }
+
+  if (typeof payload === "string") {
+    const trimmed = payload.trim();
+    if (!trimmed) {
+      return "";
+    }
+
+    // Pretty-print JSON strings for easier frontend reading.
+    try {
+      return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch (_err) {
+      return trimmed;
+    }
+  }
+
+  if (typeof payload === "object") {
+    return JSON.stringify(payload, null, 2);
+  }
+
+  return String(payload);
+}
+
 // Endpoint to receive crash logs from ESP32
 app.post('/device/crash-log', (req, res) => {
   try {
-    const crashLog = req.body;
+    const crashLog = normalizeCrashLogPayload(req.body);
     console.log('\n========================================');
     console.log('ESP32 CRASH LOG RECEIVED:');
     console.log('========================================');
@@ -1715,7 +1741,9 @@ app.get('/api/crash-logs', (req, res) => {
     }
     
     const logs = fs.readFileSync('crash_logs.txt', 'utf8');
-    const crashCount = (logs.match(/========== CRASH LOG ==========/g) || []).length;
+    const crashCount =
+      (logs.match(/^\[[^\]]+\]$/gm) || []).length ||
+      (logs.match(/========== CRASH LOG ==========/g) || []).length;
     
     res.json({ 
       logs: logs,
