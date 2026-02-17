@@ -1683,38 +1683,66 @@ app.get("/quiz/status/:device", (req, res) => {
   }
 });
 
+function normalizeCrashLogPayload(payload) {
+  if (payload === undefined || payload === null) {
+    return "";
+  }
+
+  if (typeof payload === "string") {
+    const trimmed = payload.trim();
+    if (!trimmed) {
+      return "";
+    }
+
+    // Pretty-print JSON strings for easier frontend reading.
+    try {
+      return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch (_err) {
+      return trimmed;
+    }
+  }
+
+  if (typeof payload === "object") {
+    return JSON.stringify(payload, null, 2);
+  }
+
+  return String(payload);
+}
+
 // Endpoint to receive crash logs from ESP32
 // Route-specific parser to accept NDJSON payloads from firmware uploader.
 app.post(
   '/device/crash-log',
   express.text({ type: ['application/x-ndjson', 'text/plain', 'application/json'] }),
   (req, res) => {
-  try {
-    console.log(
-      `[CRASH-INGEST] content-type=${req.headers['content-type'] || 'unknown'} body-type=${typeof req.body} body-len=${
-        typeof req.body === 'string' ? req.body.length : JSON.stringify(req.body || '').length
-      }`
-    );
+    try {
+      const bodyLength =
+        typeof req.body === 'string'
+          ? req.body.length
+          : JSON.stringify(req.body || '').length;
+      console.log(
+        `[CRASH-INGEST] content-type=${req.headers['content-type'] || 'unknown'} body-type=${typeof req.body} body-len=${bodyLength}`
+      );
 
-    const crashLog =
-      typeof req.body === 'string' ? req.body : JSON.stringify(req.body, null, 2);
-    console.log('\n========================================');
-    console.log('ESP32 CRASH LOG RECEIVED:');
-    console.log('========================================');
-    console.log(crashLog);
-    console.log('========================================\n');
-    
-    // Save to file
-    const fs = require('fs');
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    fs.appendFileSync('crash_logs.txt', `\n[${timestamp}]\n${crashLog}\n`);
-    
-    res.json({ success: true, message: 'Crash log received' });
-  } catch (error) {
-    console.error('Error receiving crash log:', error);
-    res.status(500).json({ error: error.message });
+      const crashLog = normalizeCrashLogPayload(req.body);
+      console.log('\n========================================');
+      console.log('ESP32 CRASH LOG RECEIVED:');
+      console.log('========================================');
+      console.log(crashLog);
+      console.log('========================================\n');
+
+      // Save to file
+      const fs = require('fs');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      fs.appendFileSync('crash_logs.txt', `\n[${timestamp}]\n${crashLog}\n`);
+
+      res.json({ success: true, message: 'Crash log received' });
+    } catch (error) {
+      console.error('Error receiving crash log:', error);
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 // API endpoint to read crash logs
 app.get('/api/crash-logs', (req, res) => {
@@ -1726,7 +1754,9 @@ app.get('/api/crash-logs', (req, res) => {
     }
     
     const logs = fs.readFileSync('crash_logs.txt', 'utf8');
-    const crashCount = (logs.match(/========== CRASH LOG ==========/g) || []).length;
+    const crashCount =
+      (logs.match(/^\[[^\]]+\]$/gm) || []).length ||
+      (logs.match(/========== CRASH LOG ==========/g) || []).length;
     
     res.json({ 
       logs: logs,
