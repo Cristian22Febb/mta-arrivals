@@ -32,7 +32,7 @@ let zipcodeCache = null;
 
 app.use(cors());
 app.use(express.json());  // Parse JSON bodies for POST requests
-app.use(express.text());  // Parse text/plain bodies for crash logs
+app.use(express.text({ type: "text/plain" }));  // Keep plain-text parsing narrow
 app.use(express.static(FRONTEND_DIR));
 
 // Centralized upstream snapshot cache (boot once)
@@ -1684,9 +1684,20 @@ app.get("/quiz/status/:device", (req, res) => {
 });
 
 // Endpoint to receive crash logs from ESP32
-app.post('/device/crash-log', (req, res) => {
+// Route-specific parser to accept NDJSON payloads from firmware uploader.
+app.post(
+  '/device/crash-log',
+  express.text({ type: ['application/x-ndjson', 'text/plain', 'application/json'] }),
+  (req, res) => {
   try {
-    const crashLog = req.body;
+    console.log(
+      `[CRASH-INGEST] content-type=${req.headers['content-type'] || 'unknown'} body-type=${typeof req.body} body-len=${
+        typeof req.body === 'string' ? req.body.length : JSON.stringify(req.body || '').length
+      }`
+    );
+
+    const crashLog =
+      typeof req.body === 'string' ? req.body : JSON.stringify(req.body, null, 2);
     console.log('\n========================================');
     console.log('ESP32 CRASH LOG RECEIVED:');
     console.log('========================================');
