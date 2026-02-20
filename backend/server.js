@@ -1,5 +1,6 @@
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const express = require("express");
 const cors = require("cors");
 const AdmZip = require("adm-zip");
@@ -1388,6 +1389,165 @@ app.get("/time", (req, res) => {
       hour12: false 
     })
   });
+});
+
+// ==================== OTA CONTROL PLANE (FOUNDATION) ====================
+const OTA_EVENTS_PATH = path.join(__dirname, "ota_events.ndjson");
+
+function parseBooleanEnv(value, defaultValue = false) {
+  if (value === undefined || value === null || value === "") return defaultValue;
+  return String(value).toLowerCase() === "true";
+}
+
+function parseIntEnv(value, defaultValue) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) ? parsed : defaultValue;
+}
+
+function clampInt(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function sanitizeText(value, maxLen = 256) {
+  return String(value ?? "").trim().slice(0, maxLen);
+}
+
+function sanitizeState(value) {
+  return sanitizeText(value, 64).replace(/[^a-zA-Z0-9_.:/-]/g, "_");
+}
+
+function getOtaConfig() {
+  const rolloutPercent = clampInt(parseIntEnv(process.env.OTA_ROLLOUT_PERCENT, 0), 0, 100);
+  return {
+    enabled: parseBooleanEnv(process.env.OTA_ENABLED, false),
+    channel: String(process.env.OTA_CHANNEL || "stable"),
+    version: String(process.env.OTA_VERSION || ""),
+    buildId: String(process.env.OTA_BUILD_ID || ""),
+    minSupportedVersion: String(process.env.OTA_MIN_SUPPORTED_VERSION || "0.0.0"),
+    artifactUrl: String(process.env.OTA_ARTIFACT_URL || ""),
+    sha256: String(process.env.OTA_SHA256 || "").toLowerCase(),
+    signature: String(process.env.OTA_SIGNATURE || ""),
+    signatureAlg: String(process.env.OTA_SIGNATURE_ALG || "ed25519"),
+    keyId: String(process.env.OTA_KEY_ID || "k1"),
+    size: Math.max(0, parseIntEnv(process.env.OTA_SIZE, 0)),
+    rolloutPercent,
+    killSwitch: parseBooleanEnv(process.env.OTA_KILL_SWITCH, false),
+    notBeforeUtc: String(process.env.OTA_NOT_BEFORE_UTC || ""),
+    expiresUtc: String(process.env.OTA_EXPIRES_UTC || "")
+  };
+}
+
+function getDeterministicBucket(deviceId, buildId) {
+  const digest = crypto.createHash("sha256").update(`${deviceId}:${buildId}`).digest();
+  return digest.readUInt16BE(0) % 100;
+}
+
+app.get("/ota/manifest", (req, res) => {
+  try {
+    const deviceId = String(req.query.deviceId || "").trim().toUpperCase();
+    const currentVersion = String(req.query.currentVersion || "").trim();
+    const requestedChannel = String(req.query.channel || "stable").trim() || "stable";
+    const cfg = getOtaConfig();
+
+    let reason = "disabled";
+    let eligible = false;
+    let updateAvailable = false;
+    let rolloutBucket = null;
+
+    const hasArtifact =
+      cfg.artifactUrl.length > 0 &&
+      cfg.sha256.length === 64 &&
+      cfg.size > 0 &&
+      cfg.version.length > 0 &&
+      cfg.buildId.length > 0;
+
+    if (cfg.killSwitch) {
+      reason = "kill_switch";
+    } else if (!cfg.enabled) {
+      reason = "ota_disabled";
+    } else if (requestedChannel !== cfg.channel) {
+      reason = "channel_mismatch";
+    } else if (!hasArtifact) {
+      reason = "artifact_not_ready";
+    } else if (currentVersion === cfg.version) {
+      reason = "already_current";
+    } else if (!deviceId) {
+      reason = "missing_device_id";
+    } else {
+      rolloutBucket = getDeterministicBucket(deviceId, cfg.buildId);
+      eligible = rolloutBucket < cfg.rolloutPercent;
+      updateAvailable = true;
+      reason = eligible ? "eligible" : "rollout_not_selected";
+    }
+
+    res.json({
+      schemaVersion: 1,
+      checkOnly: true,
+      autoApply: false,
+      channel: cfg.channel,
+      currentVersion,
+      updateAvailable,
+      eligible,
+      reason,
+      rolloutPercent: cfg.rolloutPercent,
+      rolloutBucket,
+      killSwitch: cfg.killSwitch,
+      version: cfg.version,
+      buildId: cfg.buildId,
+      minSupportedVersion: cfg.minSupportedVersion,
+      artifact: {
+        url: cfg.artifactUrl,
+        size: cfg.size,
+        sha256: cfg.sha256
+      },
+      signature: {
+        algorithm: cfg.signatureAlg,
+        keyId: cfg.keyId,
+        value: cfg.signature
+      },
+      releaseNotes: String(process.env.OTA_RELEASE_NOTES || ""),
+      notBeforeUtc: cfg.notBeforeUtc,
+      expiresUtc: cfg.expiresUtc,
+      serverTimeUtc: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/ota/events", (req, res) => {
+  try {
+    const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+    const deviceId = sanitizeText(body.deviceId, 64).toUpperCase();
+    const state = sanitizeState(body.state);
+    if (!deviceId || !state) {
+      return res.status(400).json({ error: "deviceId and state are required" });
+    }
+
+    const payload = {
+      receivedAt: new Date().toISOString(),
+      deviceId,
+      state,
+      detail: sanitizeText(body.detail, 1024),
+      currentVersion: sanitizeText(body.currentVersion, 64),
+      targetVersion: sanitizeText(body.targetVersion, 64),
+      buildId: sanitizeText(body.buildId, 128),
+      httpCode: Number.isFinite(Number(body.httpCode)) ? Number(body.httpCode) : 0,
+      dryRun: body.dryRun === true,
+      freeHeap: Number.isFinite(Number(body.freeHeap)) ? Number(body.freeHeap) : null
+    };
+
+    console.log("[OTA-EVENT]", JSON.stringify(payload));
+    try {
+      fs.appendFileSync(OTA_EVENTS_PATH, `${JSON.stringify(payload)}\n`, "utf8");
+    } catch (writeErr) {
+      console.error("Failed to persist OTA event:", writeErr.message);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ==================== USER MANAGEMENT ====================
