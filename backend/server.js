@@ -1470,6 +1470,59 @@ app.get("/user/info/:device", (req, res) => {
   }
 });
 
+// ==================== ADMIN USER MANAGEMENT ====================
+// TODO(auth): protect all /api/admin/* routes with middleware before production exposure.
+
+// GET /api/admin/users - List registered users
+app.get("/api/admin/users", (req, res) => {
+  try {
+    const users = loadUsers();
+    const rows = Object.entries(users).map(([device, userInfo]) => ({
+      device,
+      name: userInfo?.name || "",
+      registeredAt: userInfo?.registeredAt || ""
+    }));
+
+    rows.sort((a, b) => String(b.registeredAt).localeCompare(String(a.registeredAt)));
+    res.json({ users: rows, total: rows.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/admin/users/:device - Delete a registered user by device ID
+app.delete("/api/admin/users/:device", (req, res) => {
+  try {
+    const device = String(req.params.device || "").trim();
+    if (!device) {
+      return res.status(400).json({ error: "device is required" });
+    }
+
+    const users = loadUsers();
+    if (!Object.prototype.hasOwnProperty.call(users, device)) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const deleted = users[device];
+    delete users[device];
+
+    if (!saveUsers(users)) {
+      return res.status(500).json({ error: "Failed to save users" });
+    }
+
+    res.json({
+      success: true,
+      deleted: {
+        device,
+        name: deleted?.name || "",
+        registeredAt: deleted?.registeredAt || ""
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== DAILY QUIZ ENDPOINTS ====================
 
 const QUIZZES_PATH = path.join(__dirname, "quizzes.json");
