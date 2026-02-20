@@ -1430,6 +1430,8 @@ function getOtaConfig() {
     signatureAlg: String(process.env.OTA_SIGNATURE_ALG || "ed25519"),
     keyId: String(process.env.OTA_KEY_ID || "k1"),
     size: Math.max(0, parseIntEnv(process.env.OTA_SIZE, 0)),
+    checkOnly: parseBooleanEnv(process.env.OTA_CHECK_ONLY, true),
+    autoApply: parseBooleanEnv(process.env.OTA_AUTO_APPLY, false),
     rolloutPercent,
     killSwitch: parseBooleanEnv(process.env.OTA_KILL_SWITCH, false),
     notBeforeUtc: String(process.env.OTA_NOT_BEFORE_UTC || ""),
@@ -1448,6 +1450,7 @@ app.get("/ota/manifest", (req, res) => {
     const currentVersion = String(req.query.currentVersion || "").trim();
     const requestedChannel = String(req.query.channel || "stable").trim() || "stable";
     const cfg = getOtaConfig();
+    const responseAutoApply = cfg.checkOnly ? false : cfg.autoApply;
 
     let reason = "disabled";
     let eligible = false;
@@ -1482,8 +1485,8 @@ app.get("/ota/manifest", (req, res) => {
 
     res.json({
       schemaVersion: 1,
-      checkOnly: true,
-      autoApply: false,
+      checkOnly: cfg.checkOnly,
+      autoApply: responseAutoApply,
       channel: cfg.channel,
       currentVersion,
       updateAvailable,
