@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Users</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f6f7fb;
+        color: #111827;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+      }
+      .app {
+        max-width: 980px;
+        margin: 0 auto;
+      }
+      .panel {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+      }
+      h1 {
+        margin: 0 0 8px;
+      }
+      .muted {
+        color: #6b7280;
+        margin-bottom: 16px;
+      }
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      button {
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+        background: #ffffff;
+      }
+      button.primary {
+        background: #2563eb;
+        color: #ffffff;
+        border-color: #2563eb;
+      }
+      button.danger {
+        background: #dc2626;
+        color: #ffffff;
+        border-color: #dc2626;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .status {
+        min-height: 20px;
+        font-size: 14px;
+      }
+      .status.ok {
+        color: #15803d;
+      }
+      .status.err {
+        color: #b91c1c;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 10px 8px;
+        vertical-align: top;
+      }
+      th {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #6b7280;
+      }
+      .empty {
+        text-align: center;
+        color: #6b7280;
+        padding: 24px 8px;
+      }
+      .mono {
+        font-family: Consolas, "Courier New", monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="panel">
+        <h1>Admin Users</h1>
+        <div class="muted">List and delete registered device usernames.</div>
+
+        <div class="toolbar">
+          <button id="refreshBtn" class="primary">Refresh</button>
+          <span id="countLabel" class="muted"></span>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>Name</th>
+              <th>Registered</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody">
+            <tr>
+              <td colspan="4" class="empty">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const usersBody = document.getElementById("usersBody");
+      const statusEl = document.getElementById("status");
+      const refreshBtn = document.getElementById("refreshBtn");
+      const countLabel = document.getElementById("countLabel");
+
+      function setStatus(message, kind = "") {
+        statusEl.textContent = message || "";
+        statusEl.className = `status ${kind}`.trim();
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function renderUsers(users) {
+        if (!Array.isArray(users) || users.length === 0) {
+          usersBody.innerHTML = `<tr><td colspan="4" class="empty">No users found</td></tr>`;
+          countLabel.textContent = "0 users";
+          return;
+        }
+
+        usersBody.innerHTML = users
+          .map((row) => {
+            const device = escapeHtml(row.device || "");
+            const name = escapeHtml(row.name || "");
+            const registeredAt = escapeHtml(row.registeredAt || "");
+            return `
+              <tr>
+                <td class="mono">${device}</td>
+                <td>${name}</td>
+                <td>${registeredAt}</td>
+                <td>
+                  <button class="danger" data-device="${device}">Delete</button>
+                </td>
+              </tr>
+            `;
+          })
+          .join("");
+
+        countLabel.textContent = `${users.length} user${users.length === 1 ? "" : "s"}`;
+      }
+
+      async function loadUsers() {
+        refreshBtn.disabled = true;
+        setStatus("Loading users...");
+        try {
+          const res = await fetch("/api/admin/users");
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || "Failed to load users");
+          }
+          renderUsers(data.users || []);
+          setStatus("Users loaded.", "ok");
+        } catch (error) {
+          usersBody.innerHTML = `<tr><td colspan="4" class="empty">Failed to load users</td></tr>`;
+          countLabel.textContent = "";
+          setStatus(error.message || "Failed to load users", "err");
+        } finally {
+          refreshBtn.disabled = false;
+        }
+      }
+
+      async function deleteUser(device) {
+        if (!device) return;
+        const confirmed = window.confirm(`Delete user for device ${device}?`);
+        if (!confirmed) return;
+
+        setStatus(`Deleting ${device}...`);
+        try {
+          const res = await fetch(`/api/admin/users/${encodeURIComponent(device)}`, {
+            method: "DELETE"
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || "Delete failed");
+          }
+          setStatus(`Deleted ${device}.`, "ok");
+          await loadUsers();
+        } catch (error) {
+          setStatus(error.message || "Delete failed", "err");
+        }
+      }
+
+      usersBody.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-device]");
+        if (!button) return;
+        const device = button.getAttribute("data-device");
+        deleteUser(device);
+      });
+
+      refreshBtn.addEventListener("click", () => {
+        loadUsers();
+      });
+
+      loadUsers();
+    </script>
+  </body>
+</html>
