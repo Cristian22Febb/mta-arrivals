@@ -85,93 +85,198 @@
     "category": "Geography"
   },
   "2026-02-21": {
-    "question": "Sweet brown candy from cocoa",
-    "answer": "CHOCOLATE",
-    "category": "Food"
+    "question": "Famous square in Manhattan known for its bright billboards",
+    "answer": "TIMES SQUARE",
+    "category": "Geography"
   },
   "2026-02-22": {
-    "question": "Largest living land animal",
-    "answer": "ELEPHANT",
-    "category": "Animals"
+    "question": "Famous statue in New York Harbor that was a gift from France",
+    "answer": "STATUE OF LIBERTY",
+    "category": "Geography"
   },
   "2026-02-23": {
-    "question": "The Sunshine State",
-    "answer": "FLORIDA",
+    "question": "The five boroughs together make up this city",
+    "answer": "NEW YORK CITY",
     "category": "Geography"
   },
   "2026-02-24": {
-    "question": "Small rodent that loves cheese",
-    "answer": "MOUSE",
+    "question": "Fastest bird in the world when diving",
+    "answer": "PEREGRINE FALCON",
     "category": "Animals"
   },
   "2026-02-25": {
-    "question": "Round bread with a hole in the middle",
-    "answer": "DONUT",
-    "category": "Food"
+    "question": "Famous park located in the middle of Manhattan",
+    "answer": "CENTRAL PARK",
+    "category": "Geography"
   },
   "2026-02-26": {
-    "question": "Longest river in the world",
-    "answer": "NILE",
+    "question": "Largest ocean on Earth",
+    "answer": "PACIFIC OCEAN",
     "category": "Geography"
   },
   "2026-02-27": {
-    "question": "Largest bird in the world",
-    "answer": "OSTRICH",
-    "category": "Animals"
+    "question": "Bridge that connects Brooklyn and Manhattan",
+    "answer": "BROOKLYN BRIDGE",
+    "category": "Geography"
   },
   "2026-02-28": {
-    "question": "Green vegetable that looks like a tiny tree",
-    "answer": "BROCCOLI",
-    "category": "Food"
+    "question": "Largest mammal in the world",
+    "answer": "BLUE WHALE",
+    "category": "Animals"
   },
   "2026-03-01": {
-    "question": "Tallest mountain in the world",
-    "answer": "EVEREST",
+    "question": "Skyscraper in NYC known as the Empire State Building",
+    "answer": "EMPIRE STATE BUILDING",
     "category": "Geography"
   },
   "2026-03-02": {
-    "question": "Bird that cannot fly but can swim",
-    "answer": "PENGUIN",
-    "category": "Animals"
+    "question": "River that flows along the west side of Manhattan",
+    "answer": "HUDSON RIVER",
+    "category": "Geography"
   },
   "2026-03-03": {
-    "question": "Orange vegetable, rabbit's favorite",
-    "answer": "CARROT",
-    "category": "Food"
+    "question": "Animal that can change color to blend into its surroundings",
+    "answer": "CHAMELEON",
+    "category": "Animals"
   },
   "2026-03-04": {
-    "question": "Country shaped like a boot",
-    "answer": "ITALY",
+    "question": "Planet known for its large ring system",
+    "answer": "SATURN",
     "category": "Geography"
   },
   "2026-03-05": {
-    "question": "Man's best friend",
-    "answer": "DOG",
-    "category": "Animals"
-  },
-  "2026-03-06": {
-    "question": "Breakfast food made from eggs",
-    "answer": "OMELET",
-    "category": "Food"
-  },
-  "2026-03-07": {
-    "question": "Largest desert in the world",
+    "question": "Desert that covers much of northern Africa",
     "answer": "SAHARA",
     "category": "Geography"
   },
+  "2026-03-06": {
+    "question": "The underground train system in NYC",
+    "answer": "SUBWAY",
+    "category": "Geography"
+  },
+  "2026-03-07": {
+    "question": "Island in New York Harbor that processed millions of immigrants",
+    "answer": "ELLIS ISLAND",
+    "category": "History"
+  },
   "2026-03-08": {
-    "question": "Animal with eight arms",
-    "answer": "OCTOPUS",
-    "category": "Animals"
+    "question": "The borough of NYC known for Coney Island",
+    "answer": "BROOKLYN",
+    "category": "Geography"
   },
   "2026-03-09": {
-    "question": "Popular Mexican dish in a shell",
-    "answer": "TACO",
-    "category": "Food"
+    "question": "Largest planet in our solar system",
+    "answer": "JUPITER",
+    "category": "Science"
   },
   "2026-03-10": {
-    "question": "Home of the Great Barrier Reef",
+    "question": "Museum in NYC famous for dinosaur fossils",
+    "answer": "AMERICAN MUSEUM OF NATURAL HISTORY",
+    "category": "Geography"
+  },
+  "2026-03-11": {
+    "question": "Animal known for building dams in rivers",
+    "answer": "BEAVER",
+    "category": "Animals"
+  },
+  "2026-03-12": {
+    "question": "The famous financial street located in Lower Manhattan",
+    "answer": "WALL STREET",
+    "category": "Geography"
+  },
+  "2026-03-13": {
+    "question": "Process by which plants make their own food using sunlight",
+    "answer": "PHOTOSYNTHESIS",
+    "category": "Science"
+  },
+  "2026-03-14": {
+    "question": "The tallest waterfall in the world",
+    "answer": "ANGEL FALLS",
+    "category": "Geography"
+  },
+  "2026-03-15": {
+    "question": "Animal that sleeps hanging upside down",
+    "answer": "BAT",
+    "category": "Animals"
+  },
+  "2026-03-16": {
+    "question": "NYC borough that is also called the Bronx",
+    "answer": "BRONX",
+    "category": "Geography"
+  },
+  "2026-03-17": {
+    "question": "The force that keeps planets orbiting the sun",
+    "answer": "GRAVITY",
+    "category": "Science"
+  },
+  "2026-03-18": {
+    "question": "Large body of salt water smaller than an ocean",
+    "answer": "SEA",
+    "category": "Geography"
+  },
+  "2026-03-19": {
+    "question": "NYC borough that shares its name with a county and is on Long Island",
+    "answer": "QUEENS",
+    "category": "Geography"
+  },
+  "2026-03-20": {
+    "question": "The layer of Earth where we live",
+    "answer": "CRUST",
+    "category": "Science"
+  },
+  "2026-03-21": {
+    "question": "Animal whose fingerprints are so similar to humans that they can confuse investigators",
+    "answer": "KOALA",
+    "category": "Animals"
+  },
+  "2026-03-22": {
+    "question": "The imaginary line dividing Earth into Northern and Southern Hemispheres",
+    "answer": "EQUATOR",
+    "category": "Geography"
+  },
+  "2026-03-23": {
+    "question": "NYC airport named after a U.S. president",
+    "answer": "JFK",
+    "category": "Geography"
+  },
+  "2026-03-24": {
+    "question": "The hardest natural substance on Earth",
+    "answer": "DIAMOND",
+    "category": "Science"
+  },
+  "2026-03-25": {
+    "question": "Animal that can survive being frozen solid and then thawed back to life",
+    "answer": "WOOD FROG",
+    "category": "Animals"
+  },
+  "2026-03-26": {
+    "question": "The New York City building that was once the tallest in the world from 1931 to 1970",
+    "answer": "EMPIRE STATE BUILDING",
+    "category": "History"
+  },
+  "2026-03-27": {
+    "question": "The only continent that is also a country",
     "answer": "AUSTRALIA",
     "category": "Geography"
+  },
+  "2026-03-28": {
+    "question": "Gas that plants release during photosynthesis",
+    "answer": "OXYGEN",
+    "category": "Science"
+  },
+  "2026-03-29": {
+    "question": "NYC borough located on its own island and connected by the Verrazzano-Narrows Bridge",
+    "answer": "STATEN ISLAND",
+    "category": "Geography"
+  },
+  "2026-03-30": {
+    "question": "The speed of light is approximately 300,000 kilometers per this unit of time",
+    "answer": "SECOND",
+    "category": "Science"
+  },
+  "2026-03-31": {
+    "question": "Mathematical term for a number that has exactly two factors: 1 and itself",
+    "answer": "PRIME",
+    "category": "Math"
   }
 }
