@@ -310,10 +310,39 @@
         cursor: not-allowed;
         opacity: 0.6;
       }
+      .debug-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+        gap: 10px;
+        align-items: end;
+      }
+      .debug-grid .field-wide {
+        grid-column: span 2;
+      }
+      .debug-output {
+        margin-top: 12px;
+        max-height: 320px;
+        overflow: auto;
+        background: #0b1220;
+        color: #dbeafe;
+        border: 1px solid #1f2937;
+        border-radius: 8px;
+        padding: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+      }
       @media (max-width: 860px) {
         .search-row,
         .arrivals-grid {
           grid-template-columns: 1fr;
+        }
+        .debug-grid {
+          grid-template-columns: 1fr;
+        }
+        .debug-grid .field-wide {
+          grid-column: span 1;
         }
       }
     </style>
@@ -393,6 +422,34 @@
         <div id="alerts-list" class="alerts-list"></div>
       </div>
 
+      <div class="panel">
+        <h2>Bus Feed Debug (Log Only)</h2>
+        <div class="debug-grid">
+          <div>
+            <label for="bus-mode">Mode</label>
+            <select id="bus-mode">
+              <option value="vehicle">Vehicle Monitoring</option>
+              <option value="stop">Stop Monitoring</option>
+            </select>
+          </div>
+          <div>
+            <label for="bus-line-ref">LineRef (optional)</label>
+            <input id="bus-line-ref" type="text" placeholder="ex: MTA NYCT_B63" />
+          </div>
+          <div>
+            <label for="bus-monitoring-ref">MonitoringRef (stop mode)</label>
+            <input id="bus-monitoring-ref" type="text" placeholder="ex: 308214" />
+          </div>
+          <div>
+            <button id="bus-debug-fetch" class="refresh-button" type="button">
+              Fetch Bus Debug Snapshot
+            </button>
+          </div>
+        </div>
+        <div id="bus-debug-status" class="status">Idle.</div>
+        <pre id="bus-debug-output" class="debug-output">No bus debug snapshot yet.</pre>
+      </div>
+
       <div class="panel panel-dark arrivals-grid">
         <div class="arrivals">
           <h2>Uptown</h2>
@@ -430,6 +487,12 @@
       const unitCButton = document.getElementById("unit-c");
       const alertsStatus = document.getElementById("alerts-status");
       const alertsList = document.getElementById("alerts-list");
+      const busMode = document.getElementById("bus-mode");
+      const busLineRef = document.getElementById("bus-line-ref");
+      const busMonitoringRef = document.getElementById("bus-monitoring-ref");
+      const busDebugFetch = document.getElementById("bus-debug-fetch");
+      const busDebugStatus = document.getElementById("bus-debug-status");
+      const busDebugOutput = document.getElementById("bus-debug-output");
 
       let stations = [];
       let filteredStations = [];
@@ -444,6 +507,14 @@
 
       function setZipStatus(message) {
         zipcodeStatus.textContent = message;
+      }
+
+      function setBusDebugStatus(message) {
+        busDebugStatus.textContent = message;
+      }
+
+      function renderBusDebugOutput(data) {
+        busDebugOutput.textContent = JSON.stringify(data, null, 2);
       }
 
       const ROUTE_COLORS = {
@@ -1096,6 +1167,38 @@
 
       unitFButton.addEventListener("click", () => setTemperatureUnit("f"));
       unitCButton.addEventListener("click", () => setTemperatureUnit("c"));
+      busDebugFetch.addEventListener("click", async () => {
+        const mode = busMode.value === "stop" ? "stop" : "vehicle";
+        const lineRef = busLineRef.value.trim();
+        const monitoringRef = busMonitoringRef.value.trim();
+        const url = new URL(`${API_BASE}/bus/debug-feed`);
+        url.searchParams.set("mode", mode);
+        if (lineRef) {
+          url.searchParams.set("lineRef", lineRef);
+        }
+        if (monitoringRef) {
+          url.searchParams.set("monitoringRef", monitoringRef);
+        }
+
+        busDebugFetch.disabled = true;
+        setBusDebugStatus("Fetching Bus Time debug snapshot...");
+        try {
+          const response = await fetch(url.toString());
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || "Bus debug request failed");
+          }
+          renderBusDebugOutput(payload);
+          setBusDebugStatus(
+            `Success at ${new Date().toLocaleTimeString()} (${payload.mode} mode)`
+          );
+        } catch (error) {
+          setBusDebugStatus(error.message);
+          renderBusDebugOutput({ error: error.message });
+        } finally {
+          busDebugFetch.disabled = false;
+        }
+      });
 
       loadStations();
     </script>

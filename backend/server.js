@@ -1391,6 +1391,154 @@ app.get("/time", (req, res) => {
   });
 });
 
+function sanitizeBusParam(value, maxLen = 64) {
+  return String(value || "")
+    .trim()
+    .slice(0, maxLen)
+    .replace(/[^a-zA-Z0-9:_-]/g, "");
+}
+
+function getBusDebugSummary(mode, payload) {
+  const serviceDelivery = payload && payload.Siri && payload.Siri.ServiceDelivery
+    ? payload.Siri.ServiceDelivery
+    : {};
+  const timestamp =
+    serviceDelivery.ResponseTimestamp ||
+    payload?.Siri?.ResponseTimestamp ||
+    new Date().toISOString();
+
+  if (mode === "stop") {
+    const deliveries = Array.isArray(serviceDelivery.StopMonitoringDelivery)
+      ? serviceDelivery.StopMonitoringDelivery
+      : [];
+    const firstDelivery = deliveries[0] || {};
+    const visits = Array.isArray(firstDelivery.MonitoredStopVisit)
+      ? firstDelivery.MonitoredStopVisit
+      : [];
+    const sample = visits.slice(0, 2).map((visit) => {
+      const journey = visit?.MonitoredVehicleJourney || {};
+      return {
+        lineRef: journey.LineRef || "",
+        vehicleRef: journey.VehicleRef || "",
+        destinationRef: journey.DestinationRef || "",
+        aimedArrivalTime:
+          journey.MonitoredCall?.AimedArrivalTime ||
+          journey.MonitoredCall?.ExpectedArrivalTime ||
+          ""
+      };
+    });
+    return {
+      recordedAt: timestamp,
+      deliveryCount: deliveries.length,
+      monitoredStopVisitCount: visits.length,
+      sample
+    };
+  }
+
+  const deliveries = Array.isArray(serviceDelivery.VehicleMonitoringDelivery)
+    ? serviceDelivery.VehicleMonitoringDelivery
+    : [];
+  const firstDelivery = deliveries[0] || {};
+  const activities = Array.isArray(firstDelivery.VehicleActivity)
+    ? firstDelivery.VehicleActivity
+    : [];
+  const sample = activities.slice(0, 2).map((activity) => {
+    const journey = activity?.MonitoredVehicleJourney || {};
+    return {
+      lineRef: journey.LineRef || "",
+      vehicleRef: journey.VehicleRef || "",
+      directionRef: journey.DirectionRef || "",
+      progressRate: journey.ProgressRate || "",
+      recordedAtTime: activity?.RecordedAtTime || ""
+    };
+  });
+  return {
+    recordedAt: timestamp,
+    deliveryCount: deliveries.length,
+    vehicleActivityCount: activities.length,
+    sample
+  };
+}
+
+app.get("/bus/debug-feed", async (req, res) => {
+  try {
+    const apiKey = String(process.env.MTA_BUS_API_KEY || "").trim();
+    if (!apiKey) {
+      return res.status(500).json({
+        error:
+          "MTA_BUS_API_KEY is required for bus debug feed. Set the environment variable and redeploy."
+      });
+    }
+
+    const modeRaw = String(req.query.mode || "vehicle").trim().toLowerCase();
+    const mode = modeRaw === "stop" ? "stop" : "vehicle";
+    const lineRef = sanitizeBusParam(req.query.lineRef, 24);
+    const monitoringRef = sanitizeBusParam(req.query.monitoringRef, 24);
+    const vehicleRef = sanitizeBusParam(req.query.vehicleRef, 24);
+    const maximumStopVisits = sanitizeBusParam(req.query.maximumStopVisits, 4);
+
+    const endpoint =
+      mode === "stop"
+        ? "https://bustime.mta.info/api/siri/stop-monitoring.json"
+        : "https://bustime.mta.info/api/siri/vehicle-monitoring.json";
+    const url = new URL(endpoint);
+    url.searchParams.set("key", apiKey);
+
+    if (lineRef) url.searchParams.set("LineRef", lineRef);
+    if (mode === "stop" && monitoringRef) url.searchParams.set("MonitoringRef", monitoringRef);
+    if (mode === "stop" && maximumStopVisits) {
+      url.searchParams.set("MaximumStopVisits", maximumStopVisits);
+    }
+    if (mode === "vehicle" && vehicleRef) url.searchParams.set("VehicleRef", vehicleRef);
+
+    const response = await fetch(url.toString());
+    const status = response.status;
+    const text = await response.text();
+    let payload = null;
+    try {
+      payload = JSON.parse(text);
+    } catch (error) {
+      payload = null;
+    }
+
+    const safeUrl = new URL(url.toString());
+    safeUrl.searchParams.set("key", "***");
+
+    if (!response.ok) {
+      console.warn(
+        `[BUS-DEBUG] upstream_error status=${status} mode=${mode} lineRef=${lineRef} monitoringRef=${monitoringRef}`
+      );
+      return res.status(502).json({
+        error: "Bus Time upstream request failed",
+        mode,
+        status,
+        requestedUrl: safeUrl.toString(),
+        bodyPreview: text.slice(0, 500)
+      });
+    }
+
+    const summary = payload ? getBusDebugSummary(mode, payload) : null;
+    console.log(
+      `[BUS-DEBUG] mode=${mode} lineRef=${lineRef || "-"} monitoringRef=${monitoringRef || "-"} status=${status} ` +
+        `count=${mode === "stop" ? summary?.monitoredStopVisitCount ?? 0 : summary?.vehicleActivityCount ?? 0}`
+    );
+
+    return res.json({
+      mode,
+      status,
+      requestedUrl: safeUrl.toString(),
+      lineRef: lineRef || null,
+      monitoringRef: monitoringRef || null,
+      vehicleRef: vehicleRef || null,
+      topLevelKeys: payload && typeof payload === "object" ? Object.keys(payload) : [],
+      summary,
+      samplePayload: payload
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== OTA CONTROL PLANE (FOUNDATION) ====================
 const OTA_EVENTS_PATH = path.join(__dirname, "ota_events.ndjson");
 
