@@ -18,6 +18,11 @@ const GTFS_PROXY_BASE = process.env.GTFS_PROXY_BASE || "";
 const GTFS_PROXY_MODE = process.env.GTFS_PROXY_MODE || "nyctrains";
 
 const GTFS_DIR = path.join(__dirname, "gtfs");
+const BUS_DIR = path.join(__dirname, "buses");
+const BUS_STOPS_PATH = path.join(BUS_DIR, "stops.txt");
+const BUS_ROUTES_PATH = path.join(BUS_DIR, "routes.txt");
+const BUS_TRIPS_PATH = path.join(BUS_DIR, "trips.txt");
+const BUS_STOP_TIMES_PATH = path.join(BUS_DIR, "stop_times.txt");
 const STATIC_GTFS_URL =
   "http://web.mta.info/developers/data/nyct/subway/google_transit.zip";
 const ALERTS_FEED_URL =
@@ -30,6 +35,9 @@ const REQUIRED_FILES = ["stops.txt", "routes.txt", "trips.txt", "stop_times.txt"
 
 let stationCache = null;
 let zipcodeCache = null;
+let busStopCache = null;
+let busRouteMetaCache = null;
+let busStopRoutesCache = null;
 
 app.use(cors());
 app.use(express.json());  // Parse JSON bodies for POST requests
@@ -765,6 +773,243 @@ async function fetchArrivals(stopIds, routeList, apiKey) {
   return arrivals.slice(0, 5);
 }
 
+function normalizeBusLineRef(lineRef, publishedLineName = "") {
+  const published = String(publishedLineName || "").trim();
+  if (published) return published.toUpperCase();
+  const raw = String(lineRef || "").trim();
+  if (!raw) return "";
+  const parts = raw.split("_");
+  return String(parts[parts.length - 1] || raw).trim().toUpperCase();
+}
+
+function parseIsoTimeToEpochSeconds(iso) {
+  if (!iso) return 0;
+  const ms = Date.parse(String(iso));
+  if (!Number.isFinite(ms)) return 0;
+  return Math.floor(ms / 1000);
+}
+
+function ensureBusFilesExist() {
+  if (!fs.existsSync(BUS_STOPS_PATH)) {
+    throw new Error("Missing backend/buses/stops.txt");
+  }
+  if (!fs.existsSync(BUS_ROUTES_PATH)) {
+    throw new Error("Missing backend/buses/routes.txt");
+  }
+}
+
+function ensureBusRouteMappingFilesExist() {
+  ensureBusFilesExist();
+  if (!fs.existsSync(BUS_TRIPS_PATH)) {
+    throw new Error("Missing backend/buses/trips.txt");
+  }
+  if (!fs.existsSync(BUS_STOP_TIMES_PATH)) {
+    throw new Error("Missing backend/buses/stop_times.txt");
+  }
+}
+
+function getBusRouteMetaMap() {
+  if (busRouteMetaCache) return busRouteMetaCache;
+  ensureBusFilesExist();
+  const rows = parseSync(fs.readFileSync(BUS_ROUTES_PATH), {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true
+  });
+  const routeMap = new Map();
+  rows.forEach((row) => {
+    const shortName = String(row.route_short_name || "").trim().toUpperCase();
+    if (!shortName) return;
+    routeMap.set(shortName, {
+      route: shortName,
+      routeId: String(row.route_id || "").trim(),
+      longName: String(row.route_long_name || "").trim(),
+      color: String(row.route_color || "").trim(),
+      textColor: String(row.route_text_color || "").trim()
+    });
+  });
+  busRouteMetaCache = routeMap;
+  return busRouteMetaCache;
+}
+
+function getBusStopIndex() {
+  if (busStopCache) return busStopCache;
+  ensureBusFilesExist();
+  const rows = parseSync(fs.readFileSync(BUS_STOPS_PATH), {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true
+  });
+  const stops = rows
+    .map((row) => {
+      const id = String(row.stop_id || "").trim();
+      const name = String(row.stop_name || "").trim();
+      const lat = parseNumber(row.stop_lat);
+      const lon = parseNumber(row.stop_lon);
+      if (!id || !name || lat === null || lon === null) return null;
+      return {
+        id,
+        name,
+        lat,
+        lon,
+        locationType: String(row.location_type || "").trim(),
+        parentStation: String(row.parent_station || "").trim()
+      };
+    })
+    .filter(Boolean);
+  const stopById = new Map();
+  stops.forEach((stop) => {
+    stopById.set(stop.id, stop);
+  });
+  busStopCache = { stops, stopById };
+  return busStopCache;
+}
+
+async function buildBusStopRouteIndex() {
+  ensureBusRouteMappingFilesExist();
+  const routeMetaMap = getBusRouteMetaMap();
+
+  const trips = parseSync(fs.readFileSync(BUS_TRIPS_PATH), {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true
+  });
+
+  const tripIdToRoute = new Map();
+  trips.forEach((trip) => {
+    const tripId = String(trip.trip_id || "").trim();
+    const routeId = String(trip.route_id || "").trim();
+    if (!tripId || !routeId) return;
+    const route = normalizeBusLineRef(routeId);
+    if (!route) return;
+    tripIdToRoute.set(tripId, route);
+  });
+
+  const stopRoutes = new Map();
+  await new Promise((resolve, reject) => {
+    const parser = parse({ columns: true, skip_empty_lines: true, trim: true });
+    parser.on("readable", () => {
+      let record;
+      while ((record = parser.read())) {
+        const stopId = String(record.stop_id || "").trim();
+        const tripId = String(record.trip_id || "").trim();
+        if (!stopId || !tripId) continue;
+        const route = tripIdToRoute.get(tripId);
+        if (!route) continue;
+        if (!stopRoutes.has(stopId)) {
+          stopRoutes.set(stopId, new Set());
+        }
+        stopRoutes.get(stopId).add(route);
+      }
+    });
+    parser.on("error", (error) => reject(error));
+    parser.on("end", () => resolve());
+    fs.createReadStream(BUS_STOP_TIMES_PATH).pipe(parser);
+  });
+
+  const index = new Map();
+  stopRoutes.forEach((routeSet, stopId) => {
+    const routes = Array.from(routeSet)
+      .sort()
+      .map((route) => {
+        const meta = routeMetaMap.get(route);
+        return {
+          route,
+          longName: meta ? meta.longName : "",
+          color: meta ? meta.color : "",
+          textColor: meta ? meta.textColor : ""
+        };
+      });
+    index.set(stopId, routes);
+  });
+
+  busStopRoutesCache = index;
+  return busStopRoutesCache;
+}
+
+async function getBusStopRouteIndex() {
+  if (busStopRoutesCache) return busStopRoutesCache;
+  return buildBusStopRouteIndex();
+}
+
+async function fetchBusStopMonitoring(stopId, lineRef = "") {
+  const apiKey = String(process.env.MTA_BUS_API_KEY || "").trim();
+  if (!apiKey) {
+    throw new Error(
+      "MTA_BUS_API_KEY is required for bus endpoints. Set the environment variable and redeploy."
+    );
+  }
+  const normalizedStopId = String(stopId || "").trim();
+  if (!normalizedStopId) throw new Error("stopId is required");
+
+  const endpoint = "https://bustime.mta.info/api/siri/stop-monitoring.json";
+  const url = new URL(endpoint);
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set("MonitoringRef", normalizedStopId);
+  url.searchParams.set("MaximumStopVisits", "20");
+  if (lineRef) {
+    url.searchParams.set("LineRef", lineRef);
+  }
+
+  const response = await fetch(url.toString());
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(
+      `Bus stop monitoring failed: HTTP ${response.status} (${text.slice(0, 160) || "no body"})`
+    );
+  }
+  let payload = null;
+  try {
+    payload = JSON.parse(text);
+  } catch (error) {
+    throw new Error("Bus stop monitoring JSON parse failed");
+  }
+  return payload;
+}
+
+function getStopMonitoringVisits(payload) {
+  const delivery =
+    payload &&
+    payload.Siri &&
+    payload.Siri.ServiceDelivery &&
+    Array.isArray(payload.Siri.ServiceDelivery.StopMonitoringDelivery)
+      ? payload.Siri.ServiceDelivery.StopMonitoringDelivery[0]
+      : null;
+  if (!delivery || !Array.isArray(delivery.MonitoredStopVisit)) return [];
+  return delivery.MonitoredStopVisit;
+}
+
+function mapBusVisitToArrival(visit) {
+  const journey = visit && visit.MonitoredVehicleJourney ? visit.MonitoredVehicleJourney : {};
+  const call = journey.MonitoredCall || {};
+  const expectedArrivalTime = String(call.ExpectedArrivalTime || "").trim();
+  const aimedArrivalTime = String(call.AimedArrivalTime || "").trim();
+  const expectedDepartureTime = String(call.ExpectedDepartureTime || "").trim();
+  const aimedDepartureTime = String(call.AimedDepartureTime || "").trim();
+  const route = normalizeBusLineRef(journey.LineRef, journey.PublishedLineName);
+  return {
+    route,
+    lineRef: String(journey.LineRef || "").trim(),
+    vehicleRef: String(journey.VehicleRef || "").trim(),
+    destination: String(journey.DestinationName || journey.DestinationRef || "").trim(),
+    stopId: String(call.StopPointRef || "").trim(),
+    stopName: String(call.StopPointName || "").trim(),
+    directionRef: String(journey.DirectionRef || "").trim(),
+    expectedArrivalTime,
+    aimedArrivalTime,
+    expectedDepartureTime,
+    aimedDepartureTime,
+    expectedArrival: parseIsoTimeToEpochSeconds(expectedArrivalTime || aimedArrivalTime),
+    distanceText: String(
+      (call.Extensions &&
+        call.Extensions.Distances &&
+        call.Extensions.Distances.PresentableDistance) ||
+        ""
+    ).trim(),
+    recordedAtTime: String(visit.RecordedAtTime || "").trim()
+  };
+}
+
 function fetchArrivalsFromSnapshot(stopIds, routeList, arrivalsSnapshot = null) {
   if (!Array.isArray(stopIds) || stopIds.length === 0) {
     return [];
@@ -908,6 +1153,139 @@ app.get("/stations/by-id", async (req, res) => {
       return res.status(404).json({ error: "station not found" });
     }
     res.json(station);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/bus/stops/search", async (req, res) => {
+  try {
+    const zip = String(req.query.zip || "").trim();
+    const q = String(req.query.q || "").trim().toLowerCase();
+    if (!/^\d{5}$/.test(zip)) {
+      return res.status(400).json({ error: "zip must be a 5-digit code" });
+    }
+    const feature = extractZipcodeFeature(zip);
+    if (!feature) {
+      return res.status(404).json({ error: "zipcode not found" });
+    }
+    const centroid = getGeometryCentroid(feature.geometry);
+    if (!centroid) {
+      return res.status(500).json({ error: "zipcode geometry not available" });
+    }
+
+    const { stops } = getBusStopIndex();
+    const results = stops
+      .filter((stop) => {
+        const name = stop.name.toLowerCase();
+        const id = stop.id.toLowerCase();
+        return !q || name.includes(q) || id.includes(q);
+      })
+      .map((stop) => {
+        const distanceMiles = haversineMiles(centroid.lat, centroid.lon, stop.lat, stop.lon);
+        return {
+          id: stop.id,
+          name: stop.name,
+          lat: stop.lat,
+          lon: stop.lon,
+          distanceMiles: Number(distanceMiles.toFixed(2))
+        };
+      })
+      .sort((a, b) => a.distanceMiles - b.distanceMiles)
+      .slice(0, 60);
+
+    res.json({
+      zip,
+      query: q,
+      total: results.length,
+      stops: results
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/bus/stop/routes", async (req, res) => {
+  try {
+    const stopId = String(req.query.stopId || "").trim();
+    if (!stopId) {
+      return res.status(400).json({ error: "stopId is required" });
+    }
+
+    let routes = [];
+    let source = "static";
+    try {
+      const routeIndex = await getBusStopRouteIndex();
+      routes = routeIndex.get(stopId) || [];
+    } catch (error) {
+      source = "realtime_fallback";
+    }
+
+    if (routes.length === 0) {
+      source = "realtime_fallback";
+      const routeMap = getBusRouteMetaMap();
+      const payload = await fetchBusStopMonitoring(stopId);
+      const visits = getStopMonitoringVisits(payload);
+      const routeSet = new Set();
+      visits.forEach((visit) => {
+        const journey = visit && visit.MonitoredVehicleJourney ? visit.MonitoredVehicleJourney : {};
+        const route = normalizeBusLineRef(journey.LineRef, journey.PublishedLineName);
+        if (route) routeSet.add(route);
+      });
+      routes = Array.from(routeSet)
+        .sort()
+        .map((route) => {
+          const meta = routeMap.get(route);
+          return {
+            route,
+            longName: meta ? meta.longName : "",
+            color: meta ? meta.color : "",
+            textColor: meta ? meta.textColor : ""
+          };
+        });
+    }
+
+    res.json({
+      stopId,
+      source,
+      total: routes.length,
+      routes
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/bus/arrivals", async (req, res) => {
+  try {
+    const stopId = String(req.query.stopId || "").trim();
+    if (!stopId) {
+      return res.status(400).json({ error: "stopId is required" });
+    }
+    const routeList = String(req.query.routes || "")
+      .split(",")
+      .map((route) => route.trim().toUpperCase())
+      .filter(Boolean);
+    const routeSet = new Set(routeList);
+    const payload = await fetchBusStopMonitoring(stopId);
+    const visits = getStopMonitoringVisits(payload);
+    const arrivals = visits
+      .map(mapBusVisitToArrival)
+      .filter((item) => item.route)
+      .filter((item) => routeSet.size === 0 || routeSet.has(item.route))
+      .sort((a, b) => {
+        const left = a.expectedArrival || Number.MAX_SAFE_INTEGER;
+        const right = b.expectedArrival || Number.MAX_SAFE_INTEGER;
+        return left - right;
+      })
+      .slice(0, 20);
+
+    res.json({
+      stopId,
+      routes: routeList,
+      total: arrivals.length,
+      arrivals
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

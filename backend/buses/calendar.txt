@@ -1,0 +1,8 @@
+service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+EN_P6-Weekday,1,1,1,1,1,0,0,20260105,20260327
+FB_P6-Weekday,1,1,1,1,1,0,0,20260105,20260327
+FP_P6-Weekday,1,1,1,1,1,0,0,20260105,20260327
+GA_P6-Weekday,1,1,1,1,1,0,0,20260105,20260327
+JG_P6-Weekday,1,1,1,1,1,0,0,20260105,20260327
+JG_P6-Weekday-BM,1,1,1,1,0,0,1,20260104,20260326
+UP_P6-Weekday,1,1,1,1,1,0,0,20260105,20260327

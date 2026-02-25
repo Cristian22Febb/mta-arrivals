@@ -450,6 +450,50 @@
         <pre id="bus-debug-output" class="debug-output">No bus debug snapshot yet.</pre>
       </div>
 
+      <div class="panel panel-dark">
+        <h2>Bus Arrivals (ZIP + Stop)</h2>
+        <div class="search-row">
+          <div>
+            <label for="bus-zip-input">ZIP code</label>
+            <input
+              id="bus-zip-input"
+              type="text"
+              placeholder="Enter 5-digit NYC ZIP..."
+              autocomplete="off"
+            />
+          </div>
+          <div>
+            <label for="bus-stop-query-input">Bus stop name or code</label>
+            <input
+              id="bus-stop-query-input"
+              type="text"
+              placeholder="ex: ocean av or 300140"
+              autocomplete="off"
+            />
+          </div>
+        </div>
+        <div class="status-row">
+          <button id="bus-stop-search-button" class="refresh-button" type="button">
+            Find Bus Stops
+          </button>
+          <button id="bus-stop-refresh-button" class="refresh-button" type="button">
+            Refresh Bus Arrivals
+          </button>
+        </div>
+        <div class="status" id="bus-stop-status">Enter ZIP + stop query to start.</div>
+        <div class="search-row" style="margin-top: 12px;">
+          <div>
+            <label for="bus-stop-select">Select bus stop</label>
+            <select id="bus-stop-select" size="6"></select>
+          </div>
+          <div>
+            <label>Routes at this stop</label>
+            <div id="bus-route-options" class="routes"></div>
+          </div>
+        </div>
+        <div id="bus-arrivals-list" class="arrival-list" style="margin-top: 12px;"></div>
+      </div>
+
       <div class="panel panel-dark arrivals-grid">
         <div class="arrivals">
           <h2>Uptown</h2>
@@ -493,13 +537,24 @@
       const busDebugFetch = document.getElementById("bus-debug-fetch");
       const busDebugStatus = document.getElementById("bus-debug-status");
       const busDebugOutput = document.getElementById("bus-debug-output");
+      const busZipInput = document.getElementById("bus-zip-input");
+      const busStopQueryInput = document.getElementById("bus-stop-query-input");
+      const busStopSearchButton = document.getElementById("bus-stop-search-button");
+      const busStopRefreshButton = document.getElementById("bus-stop-refresh-button");
+      const busStopStatus = document.getElementById("bus-stop-status");
+      const busStopSelect = document.getElementById("bus-stop-select");
+      const busRouteOptions = document.getElementById("bus-route-options");
+      const busArrivalsList = document.getElementById("bus-arrivals-list");
 
       let stations = [];
       let filteredStations = [];
       let currentStation = null;
       let refreshTimer = null;
+      let busRefreshTimer = null;
       let lastWeatherData = null;
       let tempUnit = "f";
+      let busStops = [];
+      let currentBusStop = null;
 
       function setStatus(message) {
         statusText.textContent = message;
@@ -515,6 +570,175 @@
 
       function renderBusDebugOutput(data) {
         busDebugOutput.textContent = JSON.stringify(data, null, 2);
+      }
+
+      function setBusStopStatus(message) {
+        busStopStatus.textContent = message;
+      }
+
+      function renderBusStops(list) {
+        busStops = Array.isArray(list) ? list : [];
+        busStopSelect.innerHTML = "";
+        busStops.forEach((stop, index) => {
+          const option = document.createElement("option");
+          option.value = String(index);
+          const distance =
+            Number.isFinite(stop.distanceMiles) ? ` (${stop.distanceMiles} mi)` : "";
+          option.textContent = `${stop.name} [${stop.id}]${distance}`;
+          busStopSelect.appendChild(option);
+        });
+        if (busStops.length > 0) {
+          busStopSelect.selectedIndex = 0;
+          selectBusStop(busStops[0]);
+        } else {
+          currentBusStop = null;
+          busRouteOptions.innerHTML = "";
+          busArrivalsList.innerHTML = "<div class=\"status\">No bus stops found.</div>";
+        }
+      }
+
+      function renderBusRoutes(routes) {
+        busRouteOptions.innerHTML = "";
+        (routes || []).forEach((routeItem) => {
+          const route = routeItem.route || "";
+          if (!route) return;
+          const label = document.createElement("label");
+          label.className = "route-pill";
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.value = route;
+          checkbox.checked = true;
+          checkbox.addEventListener("change", () => updateBusArrivals());
+          label.appendChild(checkbox);
+          const text = document.createElement("span");
+          text.textContent = route;
+          label.appendChild(text);
+          applyRouteStyles(label, route);
+          busRouteOptions.appendChild(label);
+        });
+      }
+
+      function getSelectedBusRoutes() {
+        return Array.from(busRouteOptions.querySelectorAll("input[type=\"checkbox\"]"))
+          .filter((input) => input.checked)
+          .map((input) => input.value);
+      }
+
+      function renderBusArrivals(arrivals) {
+        busArrivalsList.innerHTML = "";
+        if (!arrivals || arrivals.length === 0) {
+          busArrivalsList.innerHTML = "<div class=\"status\">No bus arrivals found.</div>";
+          return;
+        }
+        arrivals.forEach((arrival) => {
+          const card = document.createElement("div");
+          card.className = "arrival-card";
+          const countdown = formatCountdown(arrival.expectedArrival || 0);
+          if (countdown.time === "Now") {
+            card.classList.add("is-now");
+          }
+          const destination = arrival.destination || "Bus";
+          const distance = arrival.distanceText ? ` · ${arrival.distanceText}` : "";
+          card.innerHTML = `
+            <div class="arrival-main">
+              <div class="route-circle">${arrival.route}</div>
+              <div class="arrival-name">${destination}</div>
+            </div>
+            <div class="arrival-right">
+              <div class="arrival-time">${countdown.time}</div>
+              <div class="arrival-status">${arrival.stopName || ""}${distance}</div>
+            </div>
+          `;
+          const routeCircle = card.querySelector(".route-circle");
+          if (routeCircle) {
+            applyRouteStyles(routeCircle, arrival.route);
+          }
+          busArrivalsList.appendChild(card);
+        });
+      }
+
+      async function findBusStopsByZipAndQuery() {
+        const zip = busZipInput.value.trim();
+        const query = busStopQueryInput.value.trim();
+        if (!/^\d{5}$/.test(zip)) {
+          setBusStopStatus("Enter a valid 5-digit ZIP code.");
+          return;
+        }
+        const url = new URL(`${API_BASE}/bus/stops/search`);
+        url.searchParams.set("zip", zip);
+        if (query) {
+          url.searchParams.set("q", query);
+        }
+        busStopSearchButton.disabled = true;
+        setBusStopStatus("Searching bus stops...");
+        try {
+          const response = await fetch(url.toString());
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || "Bus stop search failed.");
+          }
+          renderBusStops(payload.stops || []);
+          setBusStopStatus(`Found ${payload.total || 0} bus stops near ZIP ${zip}.`);
+        } catch (error) {
+          setBusStopStatus(error.message);
+          renderBusStops([]);
+        } finally {
+          busStopSearchButton.disabled = false;
+        }
+      }
+
+      async function loadBusRoutesForStop(stopId) {
+        const url = new URL(`${API_BASE}/bus/stop/routes`);
+        url.searchParams.set("stopId", stopId);
+        const response = await fetch(url.toString());
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to load bus routes for stop.");
+        }
+        renderBusRoutes(payload.routes || []);
+      }
+
+      async function updateBusArrivals() {
+        if (!currentBusStop) return;
+        const selectedRoutes = getSelectedBusRoutes();
+        const url = new URL(`${API_BASE}/bus/arrivals`);
+        url.searchParams.set("stopId", currentBusStop.id);
+        if (selectedRoutes.length > 0) {
+          url.searchParams.set("routes", selectedRoutes.join(","));
+        }
+        busStopRefreshButton.disabled = true;
+        setBusStopStatus(`Refreshing bus arrivals for ${currentBusStop.name}...`);
+        try {
+          const response = await fetch(url.toString());
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || "Failed to load bus arrivals.");
+          }
+          renderBusArrivals(payload.arrivals || []);
+          setBusStopStatus(
+            `Loaded ${payload.total || 0} arrivals for ${currentBusStop.name}.`
+          );
+        } catch (error) {
+          setBusStopStatus(error.message);
+          busArrivalsList.innerHTML = "<div class=\"status\">Could not load bus arrivals.</div>";
+        } finally {
+          busStopRefreshButton.disabled = false;
+        }
+      }
+
+      async function selectBusStop(stop) {
+        currentBusStop = stop;
+        if (!currentBusStop) return;
+        try {
+          await loadBusRoutesForStop(currentBusStop.id);
+          await updateBusArrivals();
+          if (busRefreshTimer) clearInterval(busRefreshTimer);
+          busRefreshTimer = setInterval(updateBusArrivals, 30000);
+        } catch (error) {
+          setBusStopStatus(error.message);
+          busRouteOptions.innerHTML = "";
+          busArrivalsList.innerHTML = "<div class=\"status\">Could not load bus stop data.</div>";
+        }
       }
 
       const ROUTE_COLORS = {
@@ -1104,6 +1328,33 @@
       showAllStationsButton.addEventListener("click", () => {
         renderStations(stations);
         setZipStatus("Showing all stations.");
+      });
+
+      busStopSearchButton.addEventListener("click", () => {
+        findBusStopsByZipAndQuery();
+      });
+
+      busZipInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          findBusStopsByZipAndQuery();
+        }
+      });
+
+      busStopQueryInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          findBusStopsByZipAndQuery();
+        }
+      });
+
+      busStopSelect.addEventListener("change", () => {
+        const index = Number(busStopSelect.value);
+        if (!Number.isNaN(index) && busStops[index]) {
+          selectBusStop(busStops[index]);
+        }
+      });
+
+      busStopRefreshButton.addEventListener("click", () => {
+        updateBusArrivals();
       });
 
       async function loadStations() {
