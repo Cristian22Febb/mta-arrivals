@@ -1747,24 +1747,59 @@ app.get("/alerts", async (req, res) => {
   }
 });
 
+function getTimeZoneClockParts(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+  const parts = formatter.formatToParts(date);
+  const values = {};
+  parts.forEach((part) => {
+    if (part.type !== "literal") {
+      values[part.type] = Number.parseInt(part.value, 10);
+    }
+  });
+  return values;
+}
+
+function getTimeZoneOffsetSeconds(date, timeZone) {
+  const parts = getTimeZoneClockParts(date, timeZone);
+  const asUtcMillis = Date.UTC(
+    parts.year,
+    (parts.month || 1) - 1,
+    parts.day || 1,
+    parts.hour || 0,
+    parts.minute || 0,
+    parts.second || 0
+  );
+  // Positive means local zone is ahead of UTC; NYC is typically negative.
+  return Math.round((asUtcMillis - date.getTime()) / 1000);
+}
+
 app.get("/time", (req, res) => {
   const now = new Date();
-  
-  // Convert to NYC timezone (America/New_York)
-  const nycTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  
+  const timeZone = "America/New_York";
+  const nycParts = getTimeZoneClockParts(now, timeZone);
+  const timezoneOffset = getTimeZoneOffsetSeconds(now, timeZone);
+
   res.json({
     timestamp: Math.floor(now.getTime() / 1000),
-    timezoneOffset: -5 * 3600, // NYC is UTC-5 (EST) or UTC-4 (EDT), using -5 for consistency
+    timezoneOffset, // Dynamically handles EST/EDT transitions.
     iso: now.toISOString(),
-    hour: nycTime.getHours(),
-    minute: nycTime.getMinutes(),
-    second: nycTime.getSeconds(),
-    formatted: now.toLocaleTimeString('en-US', { 
-      timeZone: 'America/New_York',
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
+    hour: nycParts.hour || 0,
+    minute: nycParts.minute || 0,
+    second: nycParts.second || 0,
+    formatted: now.toLocaleTimeString("en-US", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
     })
   });
 });
