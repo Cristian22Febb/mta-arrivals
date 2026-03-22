@@ -1162,6 +1162,7 @@ app.get("/bus/stops/search", async (req, res) => {
   try {
     const zip = String(req.query.zip || "").trim();
     const q = String(req.query.q || "").trim().toLowerCase();
+    const maxRadius = parseFloat(req.query.maxRadius) || 5.0;
     if (!/^\d{5}$/.test(zip)) {
       return res.status(400).json({ error: "zip must be a 5-digit code" });
     }
@@ -1176,11 +1177,6 @@ app.get("/bus/stops/search", async (req, res) => {
 
     const { stops } = getBusStopIndex();
     const results = stops
-      .filter((stop) => {
-        const name = stop.name.toLowerCase();
-        const id = stop.id.toLowerCase();
-        return !q || name.includes(q) || id.includes(q);
-      })
       .map((stop) => {
         const distanceMiles = haversineMiles(centroid.lat, centroid.lon, stop.lat, stop.lon);
         return {
@@ -1191,12 +1187,20 @@ app.get("/bus/stops/search", async (req, res) => {
           distanceMiles: Number(distanceMiles.toFixed(2))
         };
       })
+      .filter((stop) => stop.distanceMiles <= maxRadius)
+      .filter((stop) => {
+        if (!q) return true;
+        const name = stop.name.toLowerCase();
+        const id = stop.id.toLowerCase();
+        return name.includes(q) || id.includes(q);
+      })
       .sort((a, b) => a.distanceMiles - b.distanceMiles)
-      .slice(0, 60);
+      .slice(0, 100);
 
     res.json({
       zip,
       query: q,
+      maxRadius,
       total: results.length,
       stops: results
     });
