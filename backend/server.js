@@ -2441,6 +2441,76 @@ app.post("/quiz/submit", (req, res) => {
   }
 });
 
+// GET /quiz/alltime-leaderboard - Aggregate stats across all days
+app.get("/quiz/alltime-leaderboard", (req, res) => {
+  try {
+    const leaderboard = loadLeaderboard();
+    const allDates = Object.keys(leaderboard).sort();
+    const playerStats = {};
+
+    for (const date of allDates) {
+      const dayEntries = leaderboard[date];
+      if (!dayEntries || dayEntries.length === 0) continue;
+
+      // dayEntries are already sorted by time (fastest first)
+      dayEntries.forEach((entry, index) => {
+        const d = entry.device;
+        if (!playerStats[d]) {
+          playerStats[d] = {
+            device: d,
+            name: entry.name,
+            wins: 0,
+            podiums: 0,
+            played: 0,
+            bestTime: Infinity,
+            totalTime: 0,
+          };
+        }
+        playerStats[d].name = entry.name; // keep most recent name
+        playerStats[d].played++;
+        playerStats[d].totalTime += entry.time;
+        if (entry.time < playerStats[d].bestTime) playerStats[d].bestTime = entry.time;
+        if (index === 0) playerStats[d].wins++;
+        if (index < 3) playerStats[d].podiums++;
+      });
+    }
+
+    const players = Object.values(playerStats)
+      .map((p) => ({
+        device: p.device,
+        name: p.name,
+        wins: p.wins,
+        podiums: p.podiums,
+        played: p.played,
+        bestTime: p.bestTime === Infinity ? 0 : Math.round(p.bestTime * 10) / 10,
+        avgTime: p.played > 0 ? Math.round((p.totalTime / p.played) * 10) / 10 : 0,
+      }))
+      .sort((a, b) => {
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        if (b.podiums !== a.podiums) return b.podiums - a.podiums;
+        return a.avgTime - b.avgTime;
+      })
+      .slice(0, 10);
+
+    // Today's mini-board (top 5)
+    const today = getTodayDateKey();
+    const todayEntries = (leaderboard[today] || []).slice(0, 5).map((e, i) => ({
+      rank: i + 1,
+      name: e.name,
+      time: Math.round(e.time * 10) / 10,
+      device: e.device,
+    }));
+
+    res.json({
+      totalDays: allDates.length,
+      players,
+      today: { date: today, entries: todayEntries },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // GET /quiz/leaderboard - Get today's leaderboard
 app.get("/quiz/leaderboard", (req, res) => {
   try {
