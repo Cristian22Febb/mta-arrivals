@@ -250,7 +250,7 @@
     "category": "Animals"
   },
   "2026-03-26": {
-    "question": "The New York City building that was once the tallest in the world from 1931 to 1970",
+    "question": "The NYC building that was once the tallest in the world from 1931 to 1970",
     "answer": "EMPIRESTATEBUILDING",
     "category": "History"
   },
@@ -265,18 +265,168 @@
     "category": "Science"
   },
   "2026-03-29": {
-    "question": "NYC borough located on its own island and connected by the Verrazzano-Narrows Bridge",
-    "answer": "STATENISLAND",
-    "category": "Geography"
-  },
-  "2026-03-30": {
-    "question": "The speed of light is approximately 300,000 kilometers per this unit of time",
-    "answer": "SECOND",
-    "category": "Science"
-  },
-  "2026-03-31": {
     "question": "Mathematical term for a number that has exactly two factors: 1 and itself",
     "answer": "PRIME",
     "category": "Math"
+  },
+  "2026-03-30": {
+    "question": "Process where a solid converts directly into gas without passing through a liquid state",
+    "answer": "SUBLIMATION",
+    "category": "Science"
+  },
+  "2026-03-31": {
+    "question": "Roman emperor who ordered construction of the wall across northern Britain in 122 AD",
+    "answer": "HADRIAN",
+    "category": "History"
+  },
+  "2026-04-01": {
+    "question": "The only planet in the solar system that rotates clockwise on its axis",
+    "answer": "VENUS",
+    "category": "Science"
+  },
+  "2026-04-02": {
+    "question": "A triangle in which all three sides have different lengths",
+    "answer": "SCALENE",
+    "category": "Math"
+  },
+  "2026-04-03": {
+    "question": "The world's largest landlocked country by area",
+    "answer": "KAZAKHSTAN",
+    "category": "Geography"
+  },
+  "2026-04-04": {
+    "question": "The ancient Aztec capital city that stood where Mexico City is today",
+    "answer": "TENOCHTITLAN",
+    "category": "History"
+  },
+  "2026-04-05": {
+    "question": "The lightest metallic element on the periodic table",
+    "answer": "LITHIUM",
+    "category": "Science"
+  },
+  "2026-04-06": {
+    "question": "Shakespeare's longest play, featuring the Prince of Denmark",
+    "answer": "HAMLET",
+    "category": "Literature"
+  },
+  "2026-04-07": {
+    "question": "The layer of Earth's atmosphere that sits directly above the troposphere",
+    "answer": "STRATOSPHERE",
+    "category": "Science"
+  },
+  "2026-04-08": {
+    "question": "The only mammal capable of true powered flight",
+    "answer": "BAT",
+    "category": "Animals"
+  },
+  "2026-04-09": {
+    "question": "Ancient Greek mathematician known as the father of geometry",
+    "answer": "EUCLID",
+    "category": "Math"
+  },
+  "2026-04-10": {
+    "question": "Byzantine emperor who codified Roman law in the Corpus Juris Civilis",
+    "answer": "JUSTINIAN",
+    "category": "History"
+  },
+  "2026-04-11": {
+    "question": "The metallic element with the highest melting point of all elements",
+    "answer": "TUNGSTEN",
+    "category": "Science"
+  },
+  "2026-04-12": {
+    "question": "The world's deepest freshwater lake, located in Siberia, Russia",
+    "answer": "BAIKAL",
+    "category": "Geography"
+  },
+  "2026-04-13": {
+    "question": "Homer's epic poem recounting the decade-long Trojan War",
+    "answer": "ILIAD",
+    "category": "Literature"
+  },
+  "2026-04-14": {
+    "question": "A polygon with exactly 12 sides",
+    "answer": "DODECAGON",
+    "category": "Math"
+  },
+  "2026-04-15": {
+    "question": "Carthaginian general who famously crossed the Alps with war elephants to attack Rome",
+    "answer": "HANNIBAL",
+    "category": "History"
+  },
+  "2026-04-16": {
+    "question": "The nuclear process by which the Sun generates its energy",
+    "answer": "FUSION",
+    "category": "Science"
+  },
+  "2026-04-17": {
+    "question": "The only country whose territory borders both the Atlantic and Indian Oceans",
+    "answer": "SOUTHAFRICA",
+    "category": "Geography"
+  },
+  "2026-04-18": {
+    "question": "The Greek philosopher who tutored Alexander the Great",
+    "answer": "ARISTOTLE",
+    "category": "History"
+  },
+  "2026-04-19": {
+    "question": "The organ in the human body responsible for producing insulin",
+    "answer": "PANCREAS",
+    "category": "Science"
+  },
+  "2026-04-20": {
+    "question": "Type of number that equals the sum of its proper divisors, the smallest example being 6",
+    "answer": "PERFECT",
+    "category": "Math"
+  },
+  "2026-04-21": {
+    "question": "Italian poet who wrote The Divine Comedy in the 14th century",
+    "answer": "DANTE",
+    "category": "Literature"
+  },
+  "2026-04-22": {
+    "question": "The vertebrate aquatic species with the longest known lifespan, capable of living over 400 years",
+    "answer": "GREENLANDSHARK",
+    "category": "Animals"
+  },
+  "2026-04-23": {
+    "question": "The deepest oceanic trench on Earth, located in the western Pacific",
+    "answer": "MARIANSTRENCH",
+    "category": "Geography"
+  },
+  "2026-04-24": {
+    "question": "The scientist who discovered radioactivity and won Nobel Prizes in both Physics and Chemistry",
+    "answer": "CURIE",
+    "category": "Science"
+  },
+  "2026-04-25": {
+    "question": "The ancient trade and communication network connecting China to the Mediterranean",
+    "answer": "SILKROAD",
+    "category": "History"
+  },
+  "2026-04-26": {
+    "question": "Greek letter used to represent the golden ratio, approximately 1.618",
+    "answer": "PHI",
+    "category": "Math"
+  },
+  "2026-04-27": {
+    "question": "The bending of light as it passes from one medium into another",
+    "answer": "REFRACTION",
+    "category": "Science"
+  },
+  "2026-04-28": {
+    "question": "The last pharaoh of ancient Egypt, who formed alliances with Julius Caesar and Mark Antony",
+    "answer": "CLEOPATRA",
+    "category": "History"
+  },
+  "2026-04-29": {
+    "question": "The country with more natural lakes than any other in the world",
+    "answer": "CANADA",
+    "category": "Geography"
+  },
+  "2026-04-30": {
+    "question": "The nuclear process in which an atomic nucleus splits into smaller parts, releasing massive energy",
+    "answer": "FISSION",
+    "category": "Science"
   }
 }
