@@ -1163,6 +1163,26 @@ app.get("/bus/stops/search", async (req, res) => {
     const zip = String(req.query.zip || "").trim();
     const q = String(req.query.q || "").trim().toLowerCase();
     const maxRadius = parseFloat(req.query.maxRadius) || 5.0;
+
+    const { stops } = getBusStopIndex();
+
+    // Name-only search: no ZIP required — filter by query string across all stops
+    if (!zip) {
+      if (q.length < 2) {
+        return res.status(400).json({ error: "query must be at least 2 characters when no zip is provided" });
+      }
+      const results = stops
+        .filter((stop) => {
+          const name = stop.name.toLowerCase();
+          const id = stop.id.toLowerCase();
+          return name.includes(q) || id.includes(q);
+        })
+        .slice(0, 100)
+        .map((stop) => ({ id: stop.id, name: stop.name, lat: stop.lat, lon: stop.lon, distanceMiles: null }));
+      return res.json({ zip: null, query: q, total: results.length, stops: results });
+    }
+
+    // ZIP-based search (legacy, kept for compatibility)
     if (!/^\d{5}$/.test(zip)) {
       return res.status(400).json({ error: "zip must be a 5-digit code" });
     }
@@ -1175,7 +1195,6 @@ app.get("/bus/stops/search", async (req, res) => {
       return res.status(500).json({ error: "zipcode geometry not available" });
     }
 
-    const { stops } = getBusStopIndex();
     const results = stops
       .map((stop) => {
         const distanceMiles = haversineMiles(centroid.lat, centroid.lon, stop.lat, stop.lon);
