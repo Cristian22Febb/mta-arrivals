@@ -506,6 +506,41 @@
         </div>
       </div>
 
+      <!-- ── Quiz Leaderboard ──────────────────────────────────────────── -->
+      <div class="panel panel-dark" id="leaderboard-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h2 style="margin:0;">🏆 Quiz Leaderboard</h2>
+          <button id="lb-refresh-btn" style="padding:6px 14px;border-radius:8px;border:none;background:#1e40af;color:#fff;cursor:pointer;font-size:14px;">↻ Refresh</button>
+        </div>
+
+        <!-- All-time table -->
+        <div style="overflow-x:auto;">
+          <table id="lb-table" style="width:100%;border-collapse:collapse;font-size:14px;">
+            <thead>
+              <tr style="color:#94a3b8;text-align:left;border-bottom:1px solid #374151;">
+                <th style="padding:8px 10px;width:48px;">#</th>
+                <th style="padding:8px 10px;">Name</th>
+                <th style="padding:8px 10px;text-align:center;">🥇 Wins</th>
+                <th style="padding:8px 10px;text-align:center;">🏅 Top 3</th>
+                <th style="padding:8px 10px;text-align:center;">Games</th>
+                <th style="padding:8px 10px;text-align:right;">Best Time</th>
+                <th style="padding:8px 10px;text-align:right;">Avg Time</th>
+              </tr>
+            </thead>
+            <tbody id="lb-tbody">
+              <tr><td colspan="7" style="padding:20px;text-align:center;color:#64748b;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Today's results -->
+        <div id="lb-today" style="margin-top:16px;padding-top:14px;border-top:1px solid #374151;">
+          <div style="color:#94a3b8;font-size:12px;margin-bottom:8px;" id="lb-today-title">Today's results</div>
+          <div id="lb-today-body" style="color:#cbd5e1;font-size:13px;">—</div>
+        </div>
+
+        <div id="lb-status" style="margin-top:10px;font-size:12px;color:#475569;"></div>
+      </div>
 
     </div>
 
@@ -1452,6 +1487,81 @@
       });
 
       loadStations();
+
+      // ── Quiz Leaderboard ──────────────────────────────────────────────────
+      const lbTbody       = document.getElementById("lb-tbody");
+      const lbTodayTitle  = document.getElementById("lb-today-title");
+      const lbTodayBody   = document.getElementById("lb-today-body");
+      const lbStatus      = document.getElementById("lb-status");
+      const lbRefreshBtn  = document.getElementById("lb-refresh-btn");
+
+      const RANK_MEDALS = ["🥇", "🥈", "🥉"];
+
+      async function loadLeaderboard() {
+        lbTbody.innerHTML = `<tr><td colspan="7" style="padding:20px;text-align:center;color:#64748b;">Loading...</td></tr>`;
+        lbStatus.textContent = "";
+        lbRefreshBtn.disabled = true;
+        try {
+          const res  = await fetch(`${API_BASE}/quiz/alltime-leaderboard`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Request failed");
+
+          // ── All-time table ──
+          const players = data.players || [];
+          if (players.length === 0) {
+            lbTbody.innerHTML = `<tr><td colspan="7" style="padding:20px;text-align:center;color:#64748b;">No quiz results yet.</td></tr>`;
+          } else {
+            lbTbody.innerHTML = players.map((p, i) => {
+              const rank   = i + 1;
+              const medal  = rank <= 3 ? RANK_MEDALS[rank - 1] : rank;
+              const rowBg  = rank === 1 ? "#78350f22"
+                           : rank === 2 ? "#1e3a5f22"
+                           : rank === 3 ? "#43140722"
+                           : "transparent";
+              const namCol = rank === 1 ? "#fcd34d"
+                           : rank === 2 ? "#cbd5e1"
+                           : rank === 3 ? "#fb923c"
+                           : "#f1f5f9";
+              return `
+                <tr style="background:${rowBg};border-bottom:1px solid #1e293b;">
+                  <td style="padding:10px;font-size:18px;text-align:center;">${medal}</td>
+                  <td style="padding:10px;font-weight:600;color:${namCol};">${escHtml(p.name)}</td>
+                  <td style="padding:10px;text-align:center;color:#fcd34d;font-weight:700;">${p.wins}</td>
+                  <td style="padding:10px;text-align:center;color:#fb923c;">${p.podiums}</td>
+                  <td style="padding:10px;text-align:center;color:#94a3b8;">${p.played}</td>
+                  <td style="padding:10px;text-align:right;color:#34d399;font-variant-numeric:tabular-nums;">${p.bestTime}s</td>
+                  <td style="padding:10px;text-align:right;color:#64748b;font-variant-numeric:tabular-nums;">${p.avgTime}s</td>
+                </tr>`;
+            }).join("");
+          }
+
+          // ── Today's mini-board ──
+          const today   = data.today || {};
+          const entries = today.entries || [];
+          lbTodayTitle.textContent = `Today  ${today.date || ""}  (${entries.length} player${entries.length === 1 ? "" : "s"})`;
+          if (entries.length === 0) {
+            lbTodayBody.textContent = "No one has completed today's quiz yet.";
+          } else {
+            lbTodayBody.innerHTML = entries.map(e =>
+              `<span style="margin-right:18px;">${e.rank}. <b>${escHtml(e.name)}</b> — ${e.time}s</span>`
+            ).join("");
+          }
+
+          lbStatus.textContent = `${data.totalDays} quiz day${data.totalDays === 1 ? "" : "s"} on record  ·  updated ${new Date().toLocaleTimeString()}`;
+        } catch (err) {
+          lbTbody.innerHTML = `<tr><td colspan="7" style="padding:16px;color:#ef4444;">⚠ ${escHtml(err.message)}</td></tr>`;
+          lbStatus.textContent = "Failed to load leaderboard.";
+        } finally {
+          lbRefreshBtn.disabled = false;
+        }
+      }
+
+      function escHtml(str) {
+        return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      }
+
+      lbRefreshBtn.addEventListener("click", loadLeaderboard);
+      loadLeaderboard(); // auto-load on page open
     </script>
   </body>
 </html>
