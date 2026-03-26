@@ -27,6 +27,8 @@ const STATIC_GTFS_URL =
   "http://web.mta.info/developers/data/nyct/subway/google_transit.zip";
 const ALERTS_FEED_URL =
   "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fsubway-alerts";
+const BUS_ALERTS_FEED_URL =
+  "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fbus-alerts";
 const ZIP_GEOJSON_PATH = path.join(__dirname, "..", "nyc_zipcodes.geojson");
 const NOMINATIM_USER_AGENT =
   process.env.NOMINATIM_USER_AGENT || "mta-arrivals/1.0 (local dev)";
@@ -38,6 +40,7 @@ let zipcodeCache = null;
 let busStopCache = null;
 let busRouteMetaCache = null;
 let busStopRoutesCache = null;
+let busAlertsSnapshot = { feed: null, updatedAt: 0 };
 
 app.use(cors());
 app.use(express.json());  // Parse JSON bodies for POST requests
@@ -52,6 +55,19 @@ cacheManager.configure({
   logger: console
 });
 cacheManager.start();
+
+// Bus alerts background poll (every 60s)
+async function pollBusAlertsSnapshot() {
+  try {
+    const apiKey = process.env.MTA_API_KEY || "";
+    const feed = await fetchBusAlertsFeed(apiKey);
+    busAlertsSnapshot = { feed, updatedAt: Date.now() };
+  } catch (err) {
+    console.error("[bus-alerts] poll error:", err.message);
+  }
+}
+void pollBusAlertsSnapshot();
+setInterval(() => { void pollBusAlertsSnapshot(); }, 60_000);
 
 function fileIsMissingOrEmpty(filePath) {
   try {
@@ -1118,6 +1134,78 @@ async function fetchAlertsFeed(apiKey) {
   }
 }
 
+async function fetchBusAlertsFeed(apiKey) {
+  const options = apiKey
+    ? { headers: { "x-api-key": apiKey } }
+    : undefined;
+  const response = await fetch(BUS_ALERTS_FEED_URL, options);
+  const contentType = response.headers.get("content-type") || "";
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  if (!response.ok) {
+    const text = buffer.toString("utf8", 0, 500);
+    throw new Error(
+      `Failed to fetch bus alerts feed: ${response.status} (${text.trim() || "no body"})`
+    );
+  }
+
+  try {
+    return GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(buffer);
+  } catch (error) {
+    const preview = buffer.toString("utf8", 0, 500).trim();
+    throw new Error(
+      `Decode failed for bus alerts feed (content-type: ${contentType || "unknown"}). ` +
+        `Body preview: ${preview || "binary data"}`
+    );
+  }
+}
+
+function collectBusAlertsFromSnapshot(routeList) {
+  const alertMessage = busAlertsSnapshot && busAlertsSnapshot.feed
+    ? busAlertsSnapshot.feed : null;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const alertMap = new Map();
+  if (alertMessage && alertMessage.entity) {
+    alertMessage.entity.forEach((entity) => {
+      const alert = entity.alert || entity.Alert || null;
+      if (!alert) return;
+      if (!isAlertActive(alert, nowSeconds)) return;
+      const informed = alert.informedEntity || alert.informed_entity || [];
+      // For bus alerts, also try matching by stripping agency prefix (e.g. "MTA NYCT_B82" -> "B82")
+      const normalizedInformed = informed.map((e) => {
+        const raw = e.routeId || e.route_id || "";
+        if (raw.includes("_")) {
+          const parts = raw.split("_");
+          return { ...e, routeId: parts[parts.length - 1].trim().toUpperCase() };
+        }
+        return e;
+      });
+      if (!alertMatches(normalizedInformed, routeList, [], [])) return;
+      const header = getAlertHeader(alert);
+      const description = getAlertDescription(alert);
+      if (!header && !description) return;
+      const routesForAlert = getAlertRoutes(normalizedInformed);
+      const effect = getAlertEffect(alert);
+      const id = entity.id || `${header}-${description}`;
+      const key = normalizeAlertText(header);
+      const existing = alertMap.get(key);
+      if (existing) {
+        const mergedRoutes = new Set([...(existing.routes || []), ...routesForAlert]);
+        existing.routes = Array.from(mergedRoutes).sort();
+        if (!existing.effect && effect) existing.effect = effect;
+        if (!existing.id && id) existing.id = id;
+      } else {
+        const trimmedDescription = description && description.length > 200
+          ? description.slice(0, 200).trimEnd() + "…"
+          : description;
+        alertMap.set(key, { id, header, description: trimmedDescription, routes: routesForAlert, effect });
+      }
+    });
+  }
+  return Array.from(alertMap.values()).slice(0, 10);
+}
+
 app.get("/stations", async (req, res) => {
   try {
     const { stations } = await getStationIndex();
@@ -1312,6 +1400,19 @@ app.get("/bus/arrivals", async (req, res) => {
       total: arrivals.length,
       arrivals
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/bus/alerts", (req, res) => {
+  try {
+    const routeList = String(req.query.routes || "")
+      .split(",")
+      .map((r) => r.trim().toUpperCase())
+      .filter(Boolean);
+    const alerts = collectBusAlertsFromSnapshot(routeList);
+    res.json({ routes: routeList, alerts });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
