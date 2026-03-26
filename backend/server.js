@@ -1405,6 +1405,21 @@ app.get("/bus/arrivals", async (req, res) => {
   }
 });
 
+app.get("/device/weather", async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat) || 40.7128;   // default: NYC center
+    const lon = parseFloat(req.query.lon) || -74.0060;
+    const [weather, location] = await Promise.all([
+      cacheManager.getWeather(lat, lon, fetchWeather),
+      cacheManager.getReverseGeocode(lat, lon, reverseGeocode)
+    ]);
+    if (weather && location) weather.location = location;
+    res.json({ weather: weather || null });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/bus/alerts", (req, res) => {
   try {
     const routeList = String(req.query.routes || "")
