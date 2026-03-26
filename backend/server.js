@@ -1081,11 +1081,14 @@ function collectAlertsFromSnapshot(routeList, stopList, stationList, alertsSnaps
         if (!existing.effect && effect) existing.effect = effect;
         if (!existing.id && id) existing.id = id;
       } else {
-        alertMap.set(key, { id, header, description, routes: routesForAlert, effect });
+        const trimmedDescription = description && description.length > 200
+          ? description.slice(0, 200).trimEnd() + "…"
+          : description;
+        alertMap.set(key, { id, header, description: trimmedDescription, routes: routesForAlert, effect });
       }
     });
   }
-  return Array.from(alertMap.values());
+  return Array.from(alertMap.values()).slice(0, 10);
 }
 
 async function fetchAlertsFeed(apiKey) {
